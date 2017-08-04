@@ -19,19 +19,31 @@ Requirements
 
 For CUDA implementation, you need at least CUDA 7.5 and an NVIDIA GPU with minimum cc3.5 (i.e. Kepler arch) 
 
-Build
+How To
 ===
 
-Use the buil.sh script to run makefiles within CUDA_version and OpenCL_version
+Use the buil.sh script to run makefiles within CUDA_version and OpenCL_version.
 
-Limitations
-===
+```
+> ./bitcracker_cuda -h
 
-For the moment, BitCracker is able to evaluate passwords having lenght 
+Usage: ./bitcracker_cuda -i <disk_image> -d <dictionary_file>
 
-Dictionary
-===
+Options:
 
+  -h, --help			Show this help
+  -i, --diskimage		Path to your disk image
+  -d, --dictionary file		Path to dictionary or alphabet file
+  -g, --cuda.gpu		GPU device number
+  -t, --cuda.passthread		Set the number of password per thread threads
+  -b, --cuda.blocks		Set the number of blocks
+```
+
+You can use the run.sh script to execute two simple runs using the encrypted images we provide in this repo:
+	- imgWin8: memory unit encrypted with BitLocker using a Windows 8 Enteprise edition OS
+	- imgWin7: memory unit encrypted with BitLocker using a Windows 7 Enteprise edition OS
+
+Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 16 characters (implementation reasons). We will increase the max passwords size in the next release.
 BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; thus you need to provide your own input dictionary.
 
 
@@ -71,6 +83,8 @@ References, credits and contacts
 ===
 
 
+This is a research project in collaboration with the National Research Council of Italy released under GPLv2 license.
+Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com> and Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
+We will provide some additional info about BitCracker's attack in a future paper.
 
-
-
+For any additional info, start a collaboration or to report any bug please contact <elena dot ago at gmail dot com>
