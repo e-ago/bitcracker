@@ -80,8 +80,8 @@ We released the OpenCL version as a plugin of the John The Ripper (bleeding jumb
 References, credits and contacts
 ===
 
-This is a research project in collaboration with the National Research Council of Italy released under GPLv2 license.
-Copyright (C) 2013-2017  Elena Ago (elena dot ago at gmail dot com) and Massimo Bernaschi (massimo dot bernaschi at gmail dot com)
+This is a research project in collaboration with the National Research Council of Italy released under GPLv2 license.<br />
+Copyright (C) 2013-2017  Elena Ago (elena dot ago at gmail dot com) and Massimo Bernaschi (massimo dot bernaschi at gmail dot com)<br />
 We will provide some additional info about BitCracker's attack in a future paper.
 
 For any additional info, start a collaboration or to report any bug please contact (elena dot ago at gmail dot com)
