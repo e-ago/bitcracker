@@ -26,7 +26,7 @@ texture<uint8_t> w_password0;
 texture<uint8_t> w_password1;
 int 	*deviceFound[2], *hostFound[2];
 uint8_t	*hostPassword[2], *devicePassword[2];
-char 	outPsw[MAX_INPUT_PASSWORD_LEN];
+char 	outPsw[MAX_INPUT_PASSWORD_LEN+1];
 int 	outIndexPsw=0;
 
 static int check_match(int iStream) {
