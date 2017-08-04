@@ -31,12 +31,12 @@ Usage: ./bitcracker_cuda -i <disk_image> -d <dictionary_file>
 
 Options:
 
-  -h, --help				Show this help
-  -i, --diskimage			Path to your disk image
-  -d, --dictionary file		Path to dictionary or alphabet file
-  -g, --gpu					GPU device number
-  -t, --passthread			Set the number of password per thread threads
-  -b, --blocks				Set the number of blocks
+  -h, --help              Show this help
+  -i, --diskimage         Path to your disk image
+  -d, --dictionary file   Path to dictionary or alphabet file
+  -g, --gpu               GPU device number
+  -t, --passthread        Set the number of password per thread threads
+  -b, --blocks            Set the number of blocks
 ```
 
 You can use the run.sh script to execute two simple runs using the encrypted images we provide in this repo:
@@ -73,10 +73,9 @@ Performance:
 John The Ripper
 ===
 
-We released the OpenCL version as a plugin of the John The Ripper (bleeding jumbo) suite.
-
-Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker
-JtR source code: https://github.com/magnumripper/JohnTheRipper
+We released the OpenCL version as a plugin of the John The Ripper (bleeding jumbo) suite:
+* Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker <br />
+* JtR source code: https://github.com/magnumripper/JohnTheRipper
 
 References, credits and contacts
 ===
