@@ -36,11 +36,11 @@ void usage(char *name){
 		"\t\tPath to your disk image\n"
 		"  -d, --dictionary file"
 		"\t\tPath to dictionary or alphabet file\n"
-		"  -g, --cuda.gpu"
+		"  -g, --gpu"
 		"\t\tGPU device number\n"
-		"  -t, --cuda.passthread"
+		"  -t, --passthread"
 		"\t\tSet the number of password per thread threads\n"
-		"  -b, --cuda.blocks"
+		"  -b, --blocks"
 		"\t\tSet the number of blocks\n\n", name);
 }
 
@@ -124,13 +124,13 @@ int main (int argc, char **argv)
 				{"dictionary", required_argument, 0, 'd'},
 				//{"info", required_argument, 0, 'o'},
 				//{"cuda.threads", required_argument, 0, 't'},
-				{"cuda.passthread", required_argument, 0, 't'},
-				{"cuda.blocks", required_argument, 0, 'k'},
-				{"cuda.gpu", required_argument, 0, 'g'},
+				{"passthread", required_argument, 0, 't'},
+				{"blocks", required_argument, 0, 'b'},
+				{"gpu", required_argument, 0, 'g'},
 				{0, 0, 0, 0}
 			};
 
-		opt = getopt_long (argc, argv, "hi:d:t:k:g:o:", long_options, &option_index);
+		opt = getopt_long (argc, argv, "hi:d:t:b:g:", long_options, &option_index);
 		if (opt == -1)
 			break;
 		switch (opt) {
@@ -162,7 +162,7 @@ int main (int argc, char **argv)
 					exit(EXIT_FAILURE);
 				}
 				break;
-			case 'k':
+			case 'b':
 				gridBlocks = atoi(optarg);
 				break;
 			case 'g':

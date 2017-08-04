@@ -31,12 +31,12 @@ Usage: ./bitcracker_cuda -i <disk_image> -d <dictionary_file>
 
 Options:
 
-  -h, --help			Show this help
-  -i, --diskimage		Path to your disk image
+  -h, --help				Show this help
+  -i, --diskimage			Path to your disk image
   -d, --dictionary file		Path to dictionary or alphabet file
-  -g, --cuda.gpu		GPU device number
-  -t, --cuda.passthread		Set the number of password per thread threads
-  -b, --cuda.blocks		Set the number of blocks
+  -g, --gpu					GPU device number
+  -t, --passthread			Set the number of password per thread threads
+  -b, --blocks				Set the number of blocks
 ```
 
 You can use the run.sh script to execute two simple runs using the encrypted images we provide in this repo:
