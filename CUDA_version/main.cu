@@ -83,7 +83,8 @@ int getGPUStats(int numGpu)
 	printf("Max thread dimensions:  (%d, %d, %d)\n", prop.maxThreadsDim[0], prop.maxThreadsDim[1], prop.maxThreadsDim[2] );
 	printf("Max grid dimensions:  (%d, %d, %d)\n", prop.maxGridSize[0], prop.maxGridSize[1], prop.maxGridSize[2]);
 	printf( "\n");
-  	
+
+	printf("BitCracker minimum memory requirement: %ld bytes\n", tot_word_mem+size_psw);  	
   	if(avail < (tot_word_mem+size_psw))
   	{
 		fprintf(stderr, "Not enough memory available on device. Minimum required: %zd Free memory: %zd\n", (tot_word_mem+size_psw), avail);

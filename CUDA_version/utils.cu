@@ -71,7 +71,7 @@ int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** 
 		return BIT_FAILURE;
 	}
 
-
+	printf("Opening file %s\n", encryptedImagePath);
 	FILE * encryptedImage = fopen(encryptedImagePath, "r");
 	if (!encryptedImage) {
 		fprintf(stderr, "! %s : %s\n", encryptedImagePath, strerror(errno));
