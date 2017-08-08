@@ -158,7 +158,7 @@ int readFilePassword(char ** buf, int maxNumPsw, FILE *fp) {
 		if(tmp[0] == '\n' || size < 8 || size > MAX_INPUT_PASSWORD_LEN) continue;
 		if(size < MAX_INPUT_PASSWORD_LEN) tmp[size] = 0x80; //0xFF;
 
-		memcpy(( (*buf)+(i*FIXED_PASSWORD_BUFFER)), tmp, FIXED_PASSWORD_BUFFER);
+		memcpy(( (*buf)+(i*FIXED_PASSWORD_BUFFER)), tmp, MAX_INPUT_PASSWORD_LEN);
 		memset(tmp, 0, FIXED_PASSWORD_BUFFER);
 		i++;
 	}
