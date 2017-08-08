@@ -40,8 +40,11 @@ Options:
 ```
 
 You can use the run.sh script to execute two simple runs using the encrypted images we provide in this repo:
-* imgWin8: memory unit encrypted with BitLocker using a Windows 8 Enteprise edition OS
-* imgWin7: memory unit encrypted with BitLocker using a Windows 7 Enteprise edition OS
+* imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
+* imgWin8: memory unit encrypted with BitLocker using Windows 8 Enteprise edition OS
+* imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
+* imgWin10NonCompatible.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
+* imgWin10CompatibleLong27.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
 
 Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 27 characters (implementation reasons).
 In the next release, the maximum password lenght will be dynamic.
