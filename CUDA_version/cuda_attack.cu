@@ -426,7 +426,7 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		index_generic*=2;
 		schedule15 = ((uint8_t)((index_generic << 3) >> 8)) << 8 | ((uint8_t)(index_generic << 3));
 
-
+/*
 		printf("thread: %d, indexW: %d, index_generic %d, MAX_INPUT_PASSWORD_LEN %d\n", globalIndexPassword, indexW, index_generic, MAX_INPUT_PASSWORD_LEN);
 		printf("thread: %d schedule0: %x\n", globalIndexPassword, schedule0);
 		printf("thread: %d schedule1: %x\n", globalIndexPassword, schedule1);
@@ -444,7 +444,7 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		printf("thread: %d schedule13: %x\n", globalIndexPassword, schedule13);
 		printf("thread: %d schedule14: %x\n", globalIndexPassword, schedule14);
 		printf("thread: %d schedule15: %x\n", globalIndexPassword, schedule15);
-
+*/
 		ALL_SCHEDULE_LAST16()
 
 		ROUND(a, b, c, d, e, f, g, h,  schedule0, 0x428A2F98)
