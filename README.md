@@ -43,7 +43,8 @@ You can use the run.sh script to execute two simple runs using the encrypted ima
 * imgWin8: memory unit encrypted with BitLocker using a Windows 8 Enteprise edition OS
 * imgWin7: memory unit encrypted with BitLocker using a Windows 7 Enteprise edition OS
 
-Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 16 characters (implementation reasons). We will increase the max passwords size in the next release.
+Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 27 characters (implementation reasons).
+In the next release, the maximum password lenght will be dynamic.
 BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; thus you need to provide your own input dictionary.
 
 Performance
@@ -84,4 +85,5 @@ This is a research project in collaboration with the National Research Council o
 Copyright (C) 2013-2017  Elena Ago (elena dot ago at gmail dot com) and Massimo Bernaschi (massimo dot bernaschi at gmail dot com)<br />
 We will provide some additional info about BitCracker's attack in a future paper.
 
-For any additional info, start a collaboration or to report any bug please contact (elena dot ago at gmail dot com)
+Although we use the GPLv2 licence, we are open to collaborations.
+For any additional info, collaborations or bug report please contact elena dot ago at gmail dot com
