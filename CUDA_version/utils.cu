@@ -145,27 +145,24 @@ int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** 
 	return BIT_SUCCESS;
 }
 
-int readFilePassword(char *buf, int maxNumPsw, FILE *fp) {
-        int i=0, size;
-        char tmp[MAX_INPUT_PASSWORD_LEN+2];
-        memset(tmp, 0, MAX_INPUT_PASSWORD_LEN);
+int readFilePassword(char ** buf, int maxNumPsw, FILE *fp) {
+	int i=0, size;
+	char tmp[FIXED_PASSWORD_BUFFER];
+	memset(tmp, 0, FIXED_PASSWORD_BUFFER);
 
-        if (fp == NULL || feof(fp) || buf == NULL)
-                return -1;
+	if (fp == NULL || feof(fp) || buf == NULL)
+	        return -1;
 
-        while(fgets(tmp, MAX_INPUT_PASSWORD_LEN+2, fp) && (i < maxNumPsw)) {
-                size = (strlen(tmp)-1);
-                if(tmp[0] == '\n' || size < 8 || size > 16)
-                        continue;
+	while(fgets(tmp, MAX_INPUT_PASSWORD_LEN+2, fp) && (i < maxNumPsw)) {
+		size = (strlen(tmp)-1);
+		if(tmp[0] == '\n' || size < 8 || size > MAX_INPUT_PASSWORD_LEN) continue;
+		if(size < MAX_INPUT_PASSWORD_LEN) tmp[size] = 0x80; //0xFF;
 
-                if(size < 16)
-                        tmp[size] = 0x80; //0xFF;
+		memcpy(( (*buf)+(i*FIXED_PASSWORD_BUFFER)), tmp, FIXED_PASSWORD_BUFFER);
+		memset(tmp, 0, FIXED_PASSWORD_BUFFER);
+		i++;
+	}
 
-                memcpy((buf+(i*MAX_INPUT_PASSWORD_LEN)), tmp, MAX_INPUT_PASSWORD_LEN);
-                memset(tmp, 0, MAX_INPUT_PASSWORD_LEN);
-                i++;
-        }
-
-        return i;
+	return i;
 }
 

@@ -57,7 +57,9 @@
 #define WORD_SIZE 4
 #define INPUT_SIZE 2048
 #define FIXED_PART_INPUT_CHAIN_HASH 88
-#define MAX_INPUT_PASSWORD_LEN 16
+#define MAX_INPUT_PASSWORD_LEN 27
+#define FIXED_PASSWORD_BUFFER 32
+
 #define BLOCK_UNIT 32
 #define HASH_SIZE_STRING 32
 
@@ -94,7 +96,7 @@ __global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int numPass
 /* ++++++++++++++++++++++++++++++++++++++ HOST FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 int w_block_precomputed(unsigned char * salt, uint32_t * w_blocks_d);
 
-int readFilePassword(char *buf, int maxNumPsw, FILE *fp);
+int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
 int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** mac, unsigned char ** nonce, unsigned char ** encryptedVMK);
 
 char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks);

@@ -84,7 +84,7 @@ int getGPUStats(int numGpu)
 	printf("Max grid dimensions:  (%d, %d, %d)\n", prop.maxGridSize[0], prop.maxGridSize[1], prop.maxGridSize[2]);
 	printf( "\n");
 
-	printf("BitCracker minimum memory requirement: %ld bytes\n", tot_word_mem+size_psw);  	
+	printf("For this session, BitCracker requires at least %ld bytes of memory\n", (tot_word_mem+size_psw));  	
   	if(avail < (tot_word_mem+size_psw))
   	{
 		fprintf(stderr, "Not enough memory available on device. Minimum required: %zd Free memory: %zd\n", (tot_word_mem+size_psw), avail);
@@ -197,7 +197,7 @@ int main (int argc, char **argv)
 
 
 	tot_psw=(ATTACK_DEFAULT_THREADS*gridBlocks*psw_x_thread);
-	size_psw = tot_psw * MAX_INPUT_PASSWORD_LEN * sizeof(uint8_t);
+	size_psw = tot_psw * FIXED_PASSWORD_BUFFER * sizeof(uint8_t);
 	//****************** GPU device *******************
 	if(getGPUStats(gpu_id))
 	{
@@ -213,13 +213,17 @@ int main (int argc, char **argv)
 	nonce = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
 	encryptedVMK = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
 
-	readData(diskImageFile, &salt, &mac, &nonce, &encryptedVMK);
+	if(readData(diskImageFile, &salt, &mac, &nonce, &encryptedVMK) == BIT_FAILURE)
+	{
+		fprintf(stderr, "Disk image error... exit!\n");
+		goto cleanup;
+	}
 	//************************************************************
 
 	printf("\n\n====================================\nDictionary attack\n====================================\n\n");
 	//****************** W block *******************
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &w_blocks_d, tot_word_mem) );
-	if(w_block_precomputed(salt, w_blocks_d))
+	if(w_block_precomputed(salt, w_blocks_d) == BIT_FAILURE)
 	{
 		fprintf(stderr, "Words error... exit!\n");
 		goto cleanup;

@@ -25,7 +25,7 @@ texture<uint32_t> w_texture;
 texture<uint8_t> w_password0;
 texture<uint8_t> w_password1;
 int 	*deviceFound[2], *hostFound[2];
-uint8_t	*hostPassword[2], *devicePassword[2];
+char	*hostPassword[2], *devicePassword[2];
 char 	outPsw[MAX_INPUT_PASSWORD_LEN+1];
 int 	outIndexPsw=0;
 
@@ -34,7 +34,7 @@ static int check_match(int iStream) {
 
 	if (*hostFound[iStream] >= 0){
 		outIndexPsw=*(hostFound[iStream]);
-		snprintf(outPsw, MAX_INPUT_PASSWORD_LEN+1, (char *)(hostPassword[iStream]+(outIndexPsw*MAX_INPUT_PASSWORD_LEN)));
+		snprintf(outPsw, MAX_INPUT_PASSWORD_LEN+1, (char *)(hostPassword[iStream]+(outIndexPsw*FIXED_PASSWORD_BUFFER)));
 		for(i=0; i<MAX_INPUT_PASSWORD_LEN; i++)
 			if(outPsw[i] == 0x80 || outPsw[i] == 0xffffff80) outPsw[i]='\0';
 
@@ -140,7 +140,7 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 	firstLoop=TRUE;
 	while(!feof(fp)) {
 		indexStream ^= 1;
-		numReadPassword[indexStream] = readFilePassword((char *)hostPassword[indexStream], tot_psw, fp);
+		numReadPassword[indexStream] = readFilePassword(&hostPassword[indexStream], tot_psw, fp);
 	
 		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(devicePassword[indexStream], hostPassword[indexStream], size_psw, cudaMemcpyHostToDevice, stream[indexStream]) );
 		
@@ -207,9 +207,10 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 
 #define END_STRING 0x80 //0xFF
 //16 byte per password + 1 byte per length
-__global__ void decrypt_vmk(int numStream, int tot_psw, int *found, unsigned char * vmkKey, unsigned char * IV) {
+__global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, unsigned char * IV) {
     int globalIndexPassword = (threadIdx.x+blockIdx.x*blockDim.x);
-	//int indexStartData = 0;
+	
+	//Avoid register spilling in local memory
 	uint32_t hash0;
 	uint32_t hash1;
 	uint32_t hash2;
@@ -263,13 +264,12 @@ __global__ void decrypt_vmk(int numStream, int tot_psw, int *found, unsigned cha
 	uint32_t first_hash6;
 	uint32_t first_hash7;
 
-	uint32_t indexW=(globalIndexPassword*MAX_INPUT_PASSWORD_LEN);
-//	uint8_t startPassword0;
-//	uint8_t startPassword1;
+	uint32_t indexW=(globalIndexPassword*FIXED_PASSWORD_BUFFER);
+	int8_t curr_fetch=0;
+	//int8_t stop=0;
 
-	while(globalIndexPassword < tot_psw)
+	while(globalIndexPassword < tot_psw_kernel)
 	{
-		index_generic=16;
 		
 		first_hash0 = UINT32_C(0x6A09E667);
 		first_hash1 = UINT32_C(0xBB67AE85);
@@ -280,7 +280,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw, int *found, unsigned cha
 		first_hash6 = UINT32_C(0x1F83D9AB);
 		first_hash7 = UINT32_C(0x5BE0CD19);
 
-//----------------------------------------------------- FIRST HASH ------------------------------------------------
 		a = UINT32_C(0x6A09E667);
 		b = UINT32_C(0xBB67AE85);
 		c = UINT32_C(0x3C6EF372);
@@ -289,80 +288,165 @@ __global__ void decrypt_vmk(int numStream, int tot_psw, int *found, unsigned cha
 		f = UINT32_C(0x9B05688C);
 		g = UINT32_C(0x1F83D9AB);
 		h = UINT32_C(0x5BE0CD19);
-		indexW=(globalIndexPassword*MAX_INPUT_PASSWORD_LEN);
+
+//----------------------------------------------------- FIRST HASH ------------------------------------------------
+		indexW=(globalIndexPassword*FIXED_PASSWORD_BUFFER);
+		curr_fetch=0;
+		index_generic=MAX_INPUT_PASSWORD_LEN;
+		//stop=0;
 		if(numStream == 0)
 		{
-			schedule0 = ((uint32_t)tex1Dfetch(w_password0, (indexW+0)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+1)) <<  8) | 0;
-			schedule1 = ((uint32_t)tex1Dfetch(w_password0, (indexW+2)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+3)) <<  8) | 0;
-			schedule2 = ((uint32_t)tex1Dfetch(w_password0, (indexW+4)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+5)) <<  8) | 0;
-			schedule3 = ((uint32_t)tex1Dfetch(w_password0, (indexW+6)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+7)) <<  8) | 0;
-			schedule4 = ((uint32_t)tex1Dfetch(w_password0, (indexW+8)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+9)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+8)) == END_STRING)
-				index_generic=8;
-			if(tex1Dfetch(w_password0, (indexW+9)) == END_STRING)
-				index_generic=9;
+			schedule0 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule1 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule2 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule3 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
 
-			schedule5 = ((uint32_t)tex1Dfetch(w_password0, (indexW+10)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+11)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+10)) == END_STRING)
-				index_generic=10;
-			if(tex1Dfetch(w_password0, (indexW+11)) == END_STRING)
-				index_generic=11;
+			schedule4 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
 
-			schedule6 = ((uint32_t)tex1Dfetch(w_password0, (indexW+12)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+13)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+12)) == END_STRING)
-				index_generic=12;
-			if(tex1Dfetch(w_password0, (indexW+13)) == END_STRING)
-				index_generic=13;
+			schedule5 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; /* stop=1; */ }
+			curr_fetch+=2;
 
-			schedule7 = ((uint32_t)tex1Dfetch(w_password0, (indexW+14)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+15)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+14)) == END_STRING)
-				index_generic=14;
-			if(tex1Dfetch(w_password0, (indexW+15)) == END_STRING)
-				index_generic=15;
+			schedule6 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule7 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule8 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule9 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule10 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule11 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule12 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			//27
+			schedule13 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			//curr_fetch+=2;
 		}
 		else
 		{
-			schedule0 = ((uint32_t)tex1Dfetch(w_password1, (indexW+0)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+1)) <<  8) | 0;
-			schedule1 = ((uint32_t)tex1Dfetch(w_password1, (indexW+2)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+3)) <<  8) | 0;
-			schedule2 = ((uint32_t)tex1Dfetch(w_password1, (indexW+4)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+5)) <<  8) | 0;
-			schedule3 = ((uint32_t)tex1Dfetch(w_password1, (indexW+6)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+7)) <<  8) | 0;
-			schedule4 = ((uint32_t)tex1Dfetch(w_password1, (indexW+8)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+9)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+8)) == END_STRING)
-				index_generic=8;
-			if(tex1Dfetch(w_password1, (indexW+9)) == END_STRING)
-				index_generic=9;
+			schedule0 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule1 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule2 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
+			schedule3 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			curr_fetch+=2;
 
-			schedule5 = ((uint32_t)tex1Dfetch(w_password1, (indexW+10)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+11)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+10)) == END_STRING)
-				index_generic=10;
-			if(tex1Dfetch(w_password1, (indexW+11)) == END_STRING)
-				index_generic=11;
+			schedule4 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
 
-			schedule6 = ((uint32_t)tex1Dfetch(w_password1, (indexW+12)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+13)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+12)) == END_STRING)
-				index_generic=12;
-			if(tex1Dfetch(w_password1, (indexW+13)) == END_STRING)
-				index_generic=13;
+			schedule5 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
 
-			schedule7 = ((uint32_t)tex1Dfetch(w_password1, (indexW+14)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+15)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+14)) == END_STRING)
-				index_generic=14;
-			if(tex1Dfetch(w_password1, (indexW+15)) == END_STRING)
-				index_generic=15;
+			schedule6 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule7 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule8 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule9 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule10 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule11 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			schedule12 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			curr_fetch+=2;
+
+			//27
+			schedule13 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			//curr_fetch+=2;		
 		}
 
-		if(index_generic == 16)
-			schedule8 = 0x80000000;
-		else
-			schedule8 = 0;
-		schedule9 = 0;
-		schedule10 = 0;
-		schedule11 = 0;
-		schedule12 = 0;
-		schedule13 = 0;
-		schedule14 = 0;
+
+		if(index_generic == MAX_INPUT_PASSWORD_LEN) schedule13 = schedule13 | (((uint32_t)0x80) << 8);
+		//64-bit
+		schedule14=0;
 		index_generic *= 2;
 		schedule15 = ((uint8_t)((index_generic << 3) >> 8)) << 8 | ((uint8_t)(index_generic << 3));
+
+/*
+		printf("thread: %d, indexW: %d, index_generic %d, MAX_INPUT_PASSWORD_LEN %d\n", globalIndexPassword, indexW, index_generic, MAX_INPUT_PASSWORD_LEN);
+		printf("thread: %d schedule0: %x\n", globalIndexPassword, schedule0);
+		printf("thread: %d schedule1: %x\n", globalIndexPassword, schedule1);
+		printf("thread: %d schedule2: %x\n", globalIndexPassword, schedule2);
+		printf("thread: %d schedule3: %x\n", globalIndexPassword, schedule3);
+		printf("thread: %d schedule4: %x\n", globalIndexPassword, schedule4);
+		printf("thread: %d schedule5: %x\n", globalIndexPassword, schedule5);
+		printf("thread: %d schedule6: %x\n", globalIndexPassword, schedule6);
+		printf("thread: %d schedule7: %x\n", globalIndexPassword, schedule7);
+		printf("thread: %d schedule8: %x\n", globalIndexPassword, schedule8);
+		printf("thread: %d schedule9: %x\n", globalIndexPassword, schedule9);
+		printf("thread: %d schedule10: %x\n", globalIndexPassword, schedule10);
+		printf("thread: %d schedule11: %x\n", globalIndexPassword, schedule11);
+		printf("thread: %d schedule12: %x\n", globalIndexPassword, schedule12);
+		printf("thread: %d schedule13: %x\n", globalIndexPassword, schedule13);
+		printf("thread: %d schedule14: %x\n", globalIndexPassword, schedule14);
+		printf("thread: %d schedule15: %x\n", globalIndexPassword, schedule15);
+*/
+
+
 
 		ALL_SCHEDULE_LAST16()
 
@@ -442,6 +526,8 @@ __global__ void decrypt_vmk(int numStream, int tot_psw, int *found, unsigned cha
 		first_hash5 += f;
 		first_hash6 += g;
 		first_hash7 += h;
+
+
 
 //----------------------------------------------------- SECOND HASH ------------------------------------------------
 		//old loadschedule
