@@ -107,7 +107,6 @@ int checkDeviceStatistics()
             clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
             value = (char*) malloc(valueSize);
             clGetDeviceInfo(devices[j], CL_DEVICE_NAME, valueSize, value, NULL);
-	        free(value);
 
 			if (platform_id == i && gpu_id == j)
 			{
@@ -116,6 +115,8 @@ int checkDeviceStatistics()
 			}
 			else
 	            printf("\n====================================\nDevice %s (ID: %d) properties\n====================================\n\n", value, j);				
+
+	        free(value);
  
             // print hardware device version
             clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
@@ -267,9 +268,8 @@ int createClCtx()
 	clGetDeviceInfo(cdDevices[gpu_id], CL_DEVICE_NAME, 0, NULL, &gpunameSize);
 	gpuname = (char*) malloc(gpunameSize);
 	clGetDeviceInfo(cdDevices[gpu_id], CL_DEVICE_NAME, gpunameSize, gpuname, NULL);
-	free(gpuname);
-
     printf("Setting context on Platform %d, Device '%s' (ID: %d)\n", platform_id, gpuname, gpu_id);
+	free(gpuname);
 
     //Create the context
     cxGPUContext = clCreateContext(0, 1, &(cdDevices[gpu_id]), NULL, NULL, &clErr);
