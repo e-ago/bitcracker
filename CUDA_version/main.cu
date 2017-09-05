@@ -44,14 +44,14 @@ void usage(char *name){
 		"\t\tSet the number of blocks\n\n", name);
 }
 
-int getGPUStats(int numGpu)
+int getGPUStats()
 {
 	cudaDeviceProp prop;
 	size_t	avail, total;
 
-	if(numGpu < 0)
+	if(gpu_id < 0)
 	{
-		fprintf(stderr, "Invalid device number: %d\n", numGpu);
+		fprintf(stderr, "Invalid device number: %d\n", gpu_id);
 		return BIT_FAILURE;
 	}
 
@@ -59,7 +59,7 @@ int getGPUStats(int numGpu)
 	cudaGetDeviceProperties(&prop, gpu_id);
 	BITCRACKER_CUDA_CHECK( cudaMemGetInfo(&avail, &total) );
 
-	printf("\n\n====================================\nSelected device: GPU %s (ID: %d) properties\n====================================\n\n", prop.name, numGpu);
+	printf("\n\n====================================\nSelected device: GPU %s (ID: %d) properties\n====================================\n\n", prop.name, gpu_id);
 	printf("Compute capability: %d.%d\n", prop.major, prop.minor ); 
 	printf("Clock rate: %d\n", prop.clockRate );
 	printf("Clock rate: %.0f MHz (%.02f GHz)\n", prop.clockRate * 1e-3f, prop.clockRate * 1e-6f);
@@ -199,7 +199,7 @@ int main (int argc, char **argv)
 	tot_psw=(ATTACK_DEFAULT_THREADS*gridBlocks*psw_x_thread);
 	size_psw = tot_psw * FIXED_PASSWORD_BUFFER * sizeof(uint8_t);
 	//****************** GPU device *******************
-	if(getGPUStats(gpu_id))
+	if(getGPUStats())
 	{
 		fprintf(stderr, "Device error... exit!\n");
 		goto cleanup;

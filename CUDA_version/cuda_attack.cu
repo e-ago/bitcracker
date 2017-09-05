@@ -24,17 +24,17 @@
 texture<uint32_t> w_texture;
 texture<uint8_t> w_password0;
 texture<uint8_t> w_password1;
-int 	*deviceFound[2], *hostFound[2];
-char	*hostPassword[2], *devicePassword[2];
-char 	outPsw[MAX_INPUT_PASSWORD_LEN+1];
-int 	outIndexPsw=0;
+int 			*deviceFound[2], *hostFound[2];
+char			*hostPassword[2], *devicePassword[2];
+unsigned char 	outPsw[MAX_INPUT_PASSWORD_LEN+1];
+int 			outIndexPsw=0;
 
 static int check_match(int iStream) {
 	int i=0;
 
 	if (*hostFound[iStream] >= 0){
 		outIndexPsw=*(hostFound[iStream]);
-		snprintf(outPsw, MAX_INPUT_PASSWORD_LEN+1, (char *)(hostPassword[iStream]+(outIndexPsw*FIXED_PASSWORD_BUFFER)));
+		snprintf(outPsw, MAX_INPUT_PASSWORD_LEN+1, "%s", (char *)(hostPassword[iStream]+(outIndexPsw*FIXED_PASSWORD_BUFFER)));
 		for(i=0; i<MAX_INPUT_PASSWORD_LEN; i++)
 			if(outPsw[i] == 0x80 || outPsw[i] == 0xffffff80) outPsw[i]='\0';
 
