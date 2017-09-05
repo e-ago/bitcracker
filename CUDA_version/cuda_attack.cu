@@ -34,7 +34,7 @@ static int check_match(int iStream) {
 
 	if (*hostFound[iStream] >= 0){
 		outIndexPsw=*(hostFound[iStream]);
-		snprintf(outPsw, MAX_INPUT_PASSWORD_LEN+1, "%s", (char *)(hostPassword[iStream]+(outIndexPsw*FIXED_PASSWORD_BUFFER)));
+		snprintf((char*)outPsw, MAX_INPUT_PASSWORD_LEN+1, "%s", (char *)(hostPassword[iStream]+(outIndexPsw*FIXED_PASSWORD_BUFFER)));
 		for(i=0; i<MAX_INPUT_PASSWORD_LEN; i++)
 			if(outPsw[i] == 0x80 || outPsw[i] == 0xffffff80) outPsw[i]='\0';
 
