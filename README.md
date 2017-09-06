@@ -44,7 +44,7 @@ You can use the run.sh script to execute two simple runs using the encrypted ima
 * imgWin8: memory unit encrypted with BitLocker using Windows 8 Enteprise edition OS
 * imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
 * imgWin10NonCompatible.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
-* imgWin10CompatibleLong27.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
+* imgWin10CompatibleLong27.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS using the longest possible password
 
 Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 27 characters (implementation reasons).
 In the next release, the maximum password lenght will be dynamic.
