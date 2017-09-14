@@ -103,4 +103,4 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numPassword);
 
 void * Calloc(size_t len, size_t size);
-void cpu_print_hex(unsigned char hash[], int size);
+void print_hex(unsigned char hash[], int size);
