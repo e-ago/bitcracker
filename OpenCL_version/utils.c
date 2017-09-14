@@ -130,15 +130,15 @@ int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** 
 				fillBuffer(encryptedImage, *encryptedVMK, VMK_SIZE);
 
 				fprintf(stdout, "Nonce:\n");
-				print_hex(nonce, NONCE_SIZE);
+				print_hex(*nonce, NONCE_SIZE);
 				fprintf(stdout, "\n");
 
 				fprintf(stdout, "MAC:\n");
-				print_hex(mac, MAC_SIZE);
+				print_hex(*mac, MAC_SIZE);
 				fprintf(stdout, "\n");
 
 				fprintf(stdout, "VMK:\n");
-				print_hex(encryptedVMK, VMK_SIZE);
+				print_hex(*encryptedVMK, VMK_SIZE);
 				fprintf(stdout, "\n");
 				break;
 			}
