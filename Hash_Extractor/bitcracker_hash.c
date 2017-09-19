@@ -173,7 +173,9 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 				fseek(encryptedImage, 83, SEEK_CUR);
 				if (((unsigned char)fgetc(encryptedImage) != value_type[0]) || ((unsigned char)fgetc(encryptedImage) != value_type[1])) {
 					fprintf(stderr, "Error: VMK not encrypted with AES-CCM\n");
-					//ret failure?	
+					match=0;
+					i=0;
+					continue;
 				}
 
 				fseek(encryptedImage, 3, SEEK_CUR);
