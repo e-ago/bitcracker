@@ -208,61 +208,17 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 #define END_STRING 0x80 //0xFF
 __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, unsigned char * IV, int strict_check) {
     
+   	uint32_t schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
+	uint32_t schedule10, schedule11, schedule12, schedule13, schedule14, schedule15, schedule16, schedule17, schedule18, schedule19;
+	uint32_t schedule20, schedule21, schedule22, schedule23, schedule24, schedule25, schedule26, schedule27, schedule28, schedule29;
+	uint32_t schedule30, schedule31;
+	uint32_t first_hash0, first_hash1, first_hash2, first_hash3, first_hash4, first_hash5, first_hash6, first_hash7;
+	uint32_t hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7;
+	uint32_t a, b, c, d, e, f, g, h;
+
     int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
-	uint32_t hash0;
-	uint32_t hash1;
-	uint32_t hash2;
-	uint32_t hash3;
-	uint32_t hash4;
-	uint32_t hash5;
-	uint32_t hash6;
-	uint32_t hash7;
-
-	uint32_t schedule0;
-	uint32_t schedule1;
-	uint32_t schedule2;
-	uint32_t schedule3;
-	uint32_t schedule4;
-	uint32_t schedule5;
-	uint32_t schedule6;
-	uint32_t schedule7;
-	uint32_t schedule8;
-	uint32_t schedule9;
-	uint32_t schedule10;
-	uint32_t schedule11;
-	uint32_t schedule12;
-	uint32_t schedule13;
-	uint32_t schedule14;
-	uint32_t schedule15;
-	uint32_t schedule16;
-	uint32_t schedule17;
-	uint32_t schedule18;
-	uint32_t schedule19;
-	uint32_t schedule20;
-	uint32_t schedule21;
-	uint32_t schedule22;
-	uint32_t schedule23;
-	uint32_t schedule24;
-	uint32_t schedule25;
-	uint32_t schedule26;
-	uint32_t schedule27;
-	uint32_t schedule28;
-	uint32_t schedule29;
-	uint32_t schedule30;
-	uint32_t schedule31;
-
-	uint32_t a,b,c,d,e,f,g,h;
 	int index_generic;
-	uint32_t first_hash0;
-	uint32_t first_hash1;
-	uint32_t first_hash2;
-	uint32_t first_hash3;
-	uint32_t first_hash4;
-	uint32_t first_hash5;
-	uint32_t first_hash6;
-	uint32_t first_hash7;
-
-	uint32_t indexW=(gIndex*FIXED_PASSWORD_BUFFER);
+	int indexW=(gIndex*FIXED_PASSWORD_BUFFER);
 	int8_t curr_fetch=0;
 
 	while(gIndex < tot_psw_kernel)

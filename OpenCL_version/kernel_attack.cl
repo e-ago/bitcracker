@@ -183,18 +183,8 @@ __constant unsigned int TS3[256] = {
 
 #define BLOCK_UNIT 32
 #define HASH_SIZE_STRING 32
-
-
-
-unsigned int IADD3(unsigned int a, unsigned int b, unsigned int c) {
-        #if DEV_NVIDIA_SM50 == 1
-                unsigned int d;
-                asm("iadd3 %0, %1, %2, %3;" : "=r"(d) : "r"(a), "r"(b), "r"(c));
-                return d;
-        #else
-                return a+b+c;
-        #endif
-}
+#define END_STRING 0x80
+#include "sha256_header.h"
 
 unsigned int LOP3LUT_XOR(unsigned int a, unsigned int b, unsigned int c) {
         #if DEV_NVIDIA_SM50 == 1
@@ -227,71 +217,23 @@ unsigned int LOP3LUT_ANDOR(unsigned int a, unsigned int b, unsigned int c) {
         #endif
 }
 
-
-#include "sha256_header.h"
-#define END_STRING 0x80
-
 __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *w_password,
 							__global int *found, __global unsigned char * vmkKey, 
 							__global unsigned int *w_blocks_d,
                                                         unsigned int IV0, unsigned int IV4,
                                                         unsigned int IV8, unsigned int IV12)
 {
+        unsigned int schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
+        unsigned int schedule10, schedule11, schedule12, schedule13, schedule14, schedule15, schedule16, schedule17, schedule18, schedule19;
+        unsigned int schedule20, schedule21, schedule22, schedule23, schedule24, schedule25, schedule26, schedule27, schedule28, schedule29;
+        unsigned int schedule30, schedule31;
+        unsigned int first_hash0, first_hash1, first_hash2, first_hash3, first_hash4, first_hash5, first_hash6, first_hash7;
+        unsigned int hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7;
+        unsigned int a, b, c, d, e, f, g, h;
+        
         int gIndex = (int)get_global_id(0);
-        unsigned int hash0;
-	unsigned int hash1;
-	unsigned int hash2;
-	unsigned int hash3;
-	unsigned int hash4;
-	unsigned int hash5;
-	unsigned int hash6;
-	unsigned int hash7;
-
-	unsigned int schedule0;
-	unsigned int schedule1;
-	unsigned int schedule2;
-	unsigned int schedule3;
-	unsigned int schedule4;
-	unsigned int schedule5;
-	unsigned int schedule6;
-	unsigned int schedule7;
-	unsigned int schedule8;
-	unsigned int schedule9;
-	unsigned int schedule10;
-	unsigned int schedule11;
-	unsigned int schedule12;
-	unsigned int schedule13;
-	unsigned int schedule14;
-	unsigned int schedule15;
-	unsigned int schedule16;
-	unsigned int schedule17;
-	unsigned int schedule18;
-	unsigned int schedule19;
-	unsigned int schedule20;
-	unsigned int schedule21;
-	unsigned int schedule22;
-	unsigned int schedule23;
-	unsigned int schedule24;
-	unsigned int schedule25;
-	unsigned int schedule26;
-	unsigned int schedule27;
-	unsigned int schedule28;
-	unsigned int schedule29;
-	unsigned int schedule30;
-	unsigned int schedule31;
-
-	unsigned int a,b,c,d,e,f,g,h;
 	int index_generic;
-	unsigned int first_hash0;
-	unsigned int first_hash1;
-	unsigned int first_hash2;
-	unsigned int first_hash3;
-	unsigned int first_hash4;
-	unsigned int first_hash5;
-	unsigned int first_hash6;
-	unsigned int first_hash7;
-
-	unsigned int indexW=(gIndex*FIXED_PASSWORD_BUFFER);
+	int indexW=(gIndex*FIXED_PASSWORD_BUFFER);
         int curr_fetch=0;
 
 	while(gIndex < numPassword)
