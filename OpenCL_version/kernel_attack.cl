@@ -238,7 +238,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
                                                         unsigned int IV8, unsigned int IV12)
 {
         int gIndex = (int)get_global_id(0);
-
         unsigned int hash0;
 	unsigned int hash1;
 	unsigned int hash2;
@@ -321,8 +320,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
                 index_generic=MAX_INPUT_PASSWORD_LEN;
 
 		//--------------------- SCHEDULE -------------------
- 
-                //printf("MyId: %d, pass: %s, numPassword: %d\n", gIndex, w_password+indexW, numPassword);
                 schedule0 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
                 curr_fetch+=2;
                 schedule1 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
@@ -333,58 +330,55 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
                 curr_fetch+=2;
 
                 schedule4 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule5 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch; /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1; /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch; }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1; }
                 curr_fetch+=2;
 
                 schedule6 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule7 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule8 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule9 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule10 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule11 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
                 schedule12 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
                 curr_fetch+=2;
 
-                //27
                 schedule13 = ((unsigned int)w_password[(indexW+curr_fetch)] << 24) | 0 | ((unsigned int)w_password[(indexW+curr_fetch+1)] <<  8) | 0;
-                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
-                //curr_fetch+=2;
+                if((unsigned int)w_password[(indexW+curr_fetch)] == END_STRING) { index_generic=curr_fetch;  }
+                if((unsigned int)w_password[(indexW+curr_fetch+1)] == END_STRING) { index_generic=curr_fetch+1;  }
 
                 if(index_generic == MAX_INPUT_PASSWORD_LEN) schedule13 = schedule13 | ((unsigned int)0x8000);
-                //64-bit
                 schedule14=0;
                 index_generic*=2;
                 schedule15 = ((unsigned char)((index_generic << 3) >> 8)) << 8 | ((unsigned char)(index_generic << 3));
@@ -471,7 +465,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 		first_hash7 += h;
 
 //----------------------------------------------------- SECOND HASH ------------------------------------------------
-		//old loadschedule
 		schedule0 = first_hash0;
 		schedule1 = first_hash1;
 		schedule2 = first_hash2;
@@ -601,8 +594,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 	
         	for(index_generic=0; index_generic < ITERATION_NUMBER/2; index_generic++)
 		{
-
-			//Prima parte
 			a = 0x6A09E667;
 			b = 0xBB67AE85;
 			c = 0x3C6EF372;
@@ -709,7 +700,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 			hash6 = 0x1F83D9AB + g;
 			hash7 = 0x5BE0CD19 + h;
 
-			//Seconda parte
 			a = hash0;
 			b = hash1;
 			c = hash2;
@@ -719,7 +709,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 			g = hash6;
 			h = hash7;
 
-			//I primi 4 valori dei blocchi W sono sempre uguali
 			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  0, 0x428A2F98, 0)
 			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  1, 0x71374491, 0)
 			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, 0)
@@ -798,7 +787,6 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 			indexW += SINGLE_BLOCK_W_SIZE;
 		}
 
-                //BUG TITAN X!
                 for(index_generic=ITERATION_NUMBER/2; index_generic < ITERATION_NUMBER; index_generic++)
                 {
                         a = 0x6A09E667;

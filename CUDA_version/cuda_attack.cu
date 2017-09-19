@@ -302,53 +302,53 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			curr_fetch+=2;
 
 			schedule4 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule5 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;}
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;}
 			curr_fetch+=2;
 
 			schedule6 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule7 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule8 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule9 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule10 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule11 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule12 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule13 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 		}
 		else
 		{
@@ -362,53 +362,53 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			curr_fetch+=2;
 
 			schedule4 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule5 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule6 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule7 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule8 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule9 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule10 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule11 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule12 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 			curr_fetch+=2;
 
 			schedule13 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
-			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch; }
+			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1; }
 		}
 
 
@@ -627,7 +627,7 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		hash7=0;
 
 		indexW=0;
-	//#pragma unroll 1048576
+
 		for(index_generic=0; index_generic < ITERATION_NUMBER/2; index_generic++)
 		{
 			a = UINT32_C(0x6A09E667);
