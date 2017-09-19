@@ -43,6 +43,14 @@
 
 static unsigned char salt[SALT_SIZE], nonce[NONCE_SIZE], mac[MAC_SIZE], vmk[VMK_SIZE];
 
+static struct option long_options[] =
+{
+	{"help", no_argument, 0, 'h'},
+	{"image", required_argument, 0, 'i'},
+	{"outfile", required_argument, 0, 'o'},
+	{0, 0, 0, 0}
+};
+
 void * Calloc(size_t len, size_t size) {
 	void * ptr = NULL;
 	if( size <= 0)
@@ -94,26 +102,22 @@ static void print_hex(unsigned char *str, int len, FILE *out)
 
 int parse_image(char * encryptedImagePath, char * outputFile)
 {
-	const char signature[SIGNATURE_LEN] = "-FVE-FS-";
 	int version = 0, fileLen = 0, j = 0, i = 0, match = 0;
 
+	const char signature[SIGNATURE_LEN] = "-FVE-FS-";
 	unsigned char vmk_entry[4] = { 0x02, 0x00, 0x08, 0x00 };
 	unsigned char key_protection_clear[2] = { 0x00, 0x00 };
 	unsigned char key_protection_tpm[2] = { 0x00, 0x01 };
 	unsigned char key_protection_start_key[2] = { 0x00, 0x02 };
 	unsigned char key_protection_recovery[2] = { 0x00, 0x08 };
 	unsigned char key_protection_password[2] = { 0x00, 0x20 };
-
 	unsigned char value_type[2] = { 0x00, 0x05 };
-
 	unsigned char padding[16] = {0};
-	unsigned char tmpLine[128];
 	char c,d;
-	int signature_match=0;
-
+	FILE * outFile, * encryptedImage;
 
 	printf("Opening file %s\n", encryptedImagePath);
-	FILE * encryptedImage = fopen(encryptedImagePath, "r");
+	encryptedImage = fopen(encryptedImagePath, "r");
 	if (!encryptedImage) {
 		fprintf(stderr, "! %s : %s\n", encryptedImagePath, strerror(errno));
 		return 1;
@@ -204,7 +208,7 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 		print_hex(vmk, VMK_SIZE, stdout);
 		printf("\n");
 		
-		FILE * outFile = fopen(outputFile, "w");
+		outFile = fopen(outputFile, "w");
 		if (!outFile) {
 			fprintf(stderr, "! %s : %s\n", outputFile, strerror(errno));
 			return 1;
@@ -227,20 +231,11 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 
 int main(int argc, char **argv)
 {
-	errno = 0;
 	int opt, option_index = 0;
-	char * imagePath=NULL;
-	char * outFile=NULL;
+	char * imagePath=NULL, * outFile=NULL;
+	errno = 0;
 	
 	while (1) {
-		static struct option long_options[] =
-		{
-			{"help", no_argument, 0, 'h'},
-			{"image", required_argument, 0, 'i'},
-			{"outfile", required_argument, 0, 'o'},
-			{0, 0, 0, 0}
-		};
-
 		opt = getopt_long(argc, argv, "hi:o:", long_options, &option_index);
 		if (opt == -1)
 			break;
