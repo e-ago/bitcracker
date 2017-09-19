@@ -66,7 +66,7 @@ static int usage(char *name){
 		"Options:\n\n"
 		"  -h, --help"
 		"\t\tShow this help\n"
-		"  -i, --disk"
+		"  -i, --image"
 		"\t\tPath of memory unit encrypted with BitLocker\n"
 		"  -o, --outfile"
 		"\t\tOutput file\n\n", name);
@@ -234,13 +234,8 @@ int main(int argc, char **argv)
 		static struct option long_options[] =
 		{
 			{"help", no_argument, 0, 'h'},
-			{"hashfile", required_argument, 0, 'f'},
-			{"dictionary", required_argument, 0, 'd'},
-			//{"info", required_argument, 0, 'o'},
-			//{"cuda.threads", required_argument, 0, 't'},
-			{"passthread", required_argument, 0, 't'},
-			{"blocks", required_argument, 0, 'b'},
-			{"gpu", required_argument, 0, 'g'},
+			{"image", required_argument, 0, 'i'},
+			{"outfile", required_argument, 0, 'o'},
 			{0, 0, 0, 0}
 		};
 

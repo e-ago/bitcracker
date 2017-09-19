@@ -58,7 +58,7 @@ void usage(char *name)
 		"\t\t\tShow this help\n"
 		"  -f, --hashfile"
 		"\t\tPath to your input hash file (HashExtractor output)\n"
-		"  -d, --dictionary file"
+		"  -d, --dictionary"
 		"\t\tPath to dictionary or alphabet file\n"
 		"  -s, --strict"
 		"\t\tStrict check (use only in case of false positives)\n"
@@ -320,13 +320,12 @@ int main (int argc, char **argv)
 		static struct option long_options[] =
 			{
 				{"help", no_argument, 0, 'h'},
-				{"diskimage", required_argument, 0, 'i'},
+				{"hashfile", required_argument, 0, 'f'},
 				{"dictionary", required_argument, 0, 'd'},
-				//{"info", required_argument, 0, 'o'},
-				//{"cuda.threads", required_argument, 0, 't'},
 				{"passthread", required_argument, 0, 't'},
 				{"blocks", required_argument, 0, 'b'},
 				{"gpu", required_argument, 0, 'g'},
+				{"strict", optional_argument, 0, 's'},
 				{"platform", required_argument, 0, 'p'},
 				{0, 0, 0, 0}
 			};
