@@ -64,7 +64,7 @@ Options:
   -b, --blocks		Set the number of blocks
 ```
 
-N.B. In case of false positives, you can use the -s option (empirically improved password check). 
+N.B. In case of false positives, you can use the -s option (strict check empirically verified, it works with this repo images encrypted with Windows 7, 8.1 and 10). 
 
 In the the run_test.sh script there are several attack examples using the encrypted images provided in this repo:
 * imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
@@ -108,7 +108,7 @@ We released the OpenCL version as a plugin of the John The Ripper (bleeding jumb
 * Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker <br />
 * JtR source code: https://github.com/magnumripper/JohnTheRipper
 
-Future Works
+Next Release
 ===
 
 In the next relese:
