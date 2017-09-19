@@ -1220,13 +1220,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 				(strict_check == 1 && ((vmkKey[8] ^ ((uint8_t) schedule6)) == 0x03))
 			)
 			{
-				printf("schedule4=%x, char: %x, >>8: %x\n", schedule4, (uint8_t)schedule4, (uint8_t) (schedule4 >> 8));
-				printf("(vmkKey[0] ^ ((uint8_t) schedule4)): %x\n", (vmkKey[0] ^ ((uint8_t) schedule4)));
-				printf("(vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))): %x\n", (vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))));
-				printf("schedule6=%x, char: %x, >>8: %x\n", schedule6, (uint8_t)schedule6, (uint8_t) (schedule6 >> 8));
-				printf("(vmkKey[8] ^ ((uint8_t) schedule6)): %x\n", (vmkKey[8] ^ ((uint8_t) schedule6)));
-				printf("(vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))): %x\n", (vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))));
-
 				*found = gIndex;
 				break;
 			}	

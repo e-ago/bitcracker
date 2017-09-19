@@ -40,7 +40,7 @@ Usage: ./build/bitcracker_hash -i <Encrypted memory unit> -o <output file>
 Options:
 
   -h, --help		Show this help
-  -i, --disk		Path of memory unit encrypted with BitLocker
+  -i, --image		Path of memory unit encrypted with BitLocker
   -o, --outfile		Output file
 ```
 
