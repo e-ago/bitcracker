@@ -28,7 +28,7 @@
 
 unsigned char   outPsw[MAX_INPUT_PASSWORD_LEN+2];
 int             *hostFound, match;
-unsigned char   *hostPassword;
+char            *hostPassword;
 
 static int check_match() {
     int i=0;
@@ -36,7 +36,7 @@ static int check_match() {
     if (hostFound[0] >= 0){
         snprintf((char*)outPsw, MAX_INPUT_PASSWORD_LEN+1, "%s", hostPassword+(hostFound[0]*FIXED_PASSWORD_BUFFER) );
         for(i=0; i<MAX_INPUT_PASSWORD_LEN; i++)
-            if(outPsw[i] == 0x80 || outPsw[i] == 0xffffff80) outPsw[i]='\0';
+            if(outPsw[i] == 0x80 || outPsw[i] == 0xff) outPsw[i]='\0'; //0xffffff80
 
         return 1;
     }
@@ -63,6 +63,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     char                *source_str_attack;
     size_t len = 0;
     cl_int ret_cl = CL_SUCCESS, ret_cl_log = CL_SUCCESS, ret_info_kernel = CL_SUCCESS;
+    char optProgram[128];
 
     //------- READ CL FILE ------            
     /* Load kernel source file */       
@@ -102,8 +103,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     tmpIV[IV_SIZE-1] = 1; 
     // --------------------------------------------------------------------------
 
-
-
     // ---- Open File Dictionary ----
     if (!memcmp(dname, "-\0", 2)) {
         fp_file_passwords= stdin;
@@ -115,7 +114,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         }
     }
     // --------------------------------------------------------------------------
-   
 
     // ------------------------------- Kernel setup -------------------------------
     /* Create kernel from source */     
@@ -123,16 +121,16 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     CL_ERROR(ciErr1);
 
     clGetDeviceInfo(cdDevices[gpu_id], CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, sizeof(ccMajor), &ccMajor, NULL);
-    if(ccMajor >= 5)
-        CC_SM50=1;
     CC_SM50=0;
-    if(DEV_NVIDIA == 1 && CC_SM50 == 1)
-        ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), "-I . -cl-nv-verbose -D DEV_NVIDIA_SM50=1", NULL, NULL);
-    else if(DEV_NVIDIA == 1)
-        ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), "-I . -cl-nv-verbose -D DEV_NVIDIA_SM50=0", NULL, NULL);
-    else
-        ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), "-I . -D DEV_NVIDIA_SM50=0", NULL, NULL);
+    if(ccMajor >= 5) CC_SM50=1;
 
+    memset(optProgram, 0, 128);
+    if(DEV_NVIDIA == 1)
+        snprintf(optProgram, 128, "-I . -cl-nv-verbose -D DEV_NVIDIA_SM50=%d -D STRICT_CHECK=%d", CC_SM50, strict_check);
+    else
+        snprintf(optProgram, 128, "-I . -D DEV_NVIDIA_SM50=0 -D STRICT_CHECK=%d", strict_check);
+
+    ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), optProgram, NULL, NULL);
     CL_ERROR(ciErr1);
 
     ret_cl = clGetProgramBuildInfo(cpProgram, cdDevices[gpu_id], CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
@@ -177,7 +175,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     numPassword = GPU_MAX_WORKGROUP_SIZE*gridBlocks*MAX_PASSWD_SINGLE_KERNEL;
     passwordBufferSize = numPassword * MAX_INPUT_PASSWORD_LEN * sizeof(unsigned char);
 
-    hostPassword = (unsigned char *) calloc(passwordBufferSize, sizeof(unsigned char));
+    hostPassword = (char *) calloc(passwordBufferSize, sizeof(char));
     hostFound = (int *) calloc(1, sizeof(int));
     // --------------------------------------------------------------------------
 
@@ -187,9 +185,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     deviceEncryptedVMK = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, VMK_DECRYPT_SIZE*sizeof(unsigned char), NULL, &ciErr1);
     CL_ERROR(ciErr1);
     
-   // deviceIV = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, IV_SIZE*sizeof(unsigned char), NULL, &ciErr1);
-    //CL_ERROR(ciErr1); 
-
     devicePassword = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, passwordBufferSize*sizeof(unsigned char), NULL, &ciErr1);
     CL_ERROR(ciErr1);   
 
@@ -200,16 +195,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     CL_ERROR(ciErr1);
     // --------------------------------------------------------------------------
 
-    
-
     // ------------------------------- Write static buffers -------------------------------
-    /*
-        schedule0 = __byte_perm(((unsigned int *)(IV))[0], 0, 0x0123) ^ hash0;
-        schedule1 = __byte_perm(((unsigned int *)(IV+4))[0], 0, 0x0123) ^ hash1;
-        schedule2 = __byte_perm(((unsigned int *)(IV+8))[0], 0, 0x0123) ^ hash2;
-        schedule3 = __byte_perm(((unsigned int *)(IV+12))[0], 0, 0x0123) ^ hash3;
-    */
-
     unsigned int tmp_global = ((unsigned int *)(tmpIV))[0];
     unsigned int IV0=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
     
@@ -225,9 +211,8 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, w_blocks_d, CL_TRUE, 0, SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(int), w_blocks, 0, NULL, NULL);      
     CL_ERROR(ciErr1);  
     
-    ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, deviceEncryptedVMK, CL_TRUE, 0, VMK_DECRYPT_SIZE*sizeof(char), encryptedVMK, 0, NULL, NULL);      
-    CL_ERROR(ciErr1);  
-
+    ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, deviceEncryptedVMK, CL_TRUE, 0, VMK_DECRYPT_SIZE*sizeof(char), encryptedVMK+16, 0, NULL, NULL);      
+    CL_ERROR(ciErr1);
     // --------------------------------------------------------------------------
 
     szLocalWorkSize = GPU_MAX_WORKGROUP_SIZE;
@@ -239,7 +224,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     int iter=0;
     while(!feof(fp_file_passwords))
     {
-
         numReadPassword = readFilePassword(&hostPassword, numPassword, fp_file_passwords);
 
         /* Copy input data to memory buffer */      
@@ -278,9 +262,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         ciErr1 |= clSetKernelArg(ckKernelAttack, 8, sizeof(cl_int), (void*)&IV12);
         CL_ERROR(ciErr1);
         // --------------------------------------------------------
-       
-        // Launch kernel
-       
+              
         time_t start,end;
         double dif;
         TIMER_DEF(0);

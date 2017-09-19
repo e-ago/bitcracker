@@ -1,5 +1,5 @@
 /*
- * BitCracker: BitLocker password cracking tool, CUDA version.
+ * BitCracker: BitLocker password cracking tool, OpenCL version.
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *                          Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
@@ -59,7 +59,7 @@
 #define MAC_SIZE 16
 #define NONCE_SIZE 12
 #define IV_SIZE 16
-#define VMK_SIZE 44
+#define VMK_SIZE 60
 #define VMK_DECRYPT_SIZE 16
 #define DICT_BUFSIZE    (50*1024*1024)
 #define MAX_PLEN 32
@@ -82,6 +82,10 @@
 
 #define BLOCK_UNIT 32
 #define HASH_SIZE_STRING 32
+
+#define HASH_TAG              "$bitlocker$"
+#define HASH_TAG_LEN          (sizeof(HASH_TAG) - 1)
+#define INPUT_HASH_SIZE         210
 
 #define ATTACK_DEFAULT_THREADS 1024
 
@@ -183,6 +187,7 @@ extern int platform_id;
 extern int psw_x_thread;
 extern int tot_psw;
 extern size_t size_psw;
+extern int strict_check;
 
 extern int MAX_PASSWD_SINGLE_KERNEL;
 extern int DEV_NVIDIA;
@@ -201,10 +206,12 @@ extern cl_platform_id      cpPlatforms[MAX_NUM_PLATFORMS];      // OpenCL platfo
 extern cl_uint             uiNumDevices;    // OpenCL total number of devices
 extern cl_device_id*       cdDevices;       // OpenCL device(s)
 
-
 unsigned int * w_block_precomputed(unsigned char * salt);
-int readFilePassword(unsigned char ** buf, int maxNumPsw, FILE *fp);
-int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** mac, unsigned char ** nonce, unsigned char ** encryptedVMK);
+int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
+int parse_data(char *input_hash, 
+    unsigned char ** salt,
+    unsigned char ** nonce,
+    unsigned char ** vmk);
 
 char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks);
 void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numPassword);

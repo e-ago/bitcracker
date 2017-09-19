@@ -40,6 +40,7 @@ int psw_x_thread=8;
 int tot_psw=0;
 size_t size_psw=0;
 size_t tot_word_mem=(SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t));
+int strict_check=0;
 
 // OpenCL Vars
 cl_context          cxGPUContext;        // OpenCL context
@@ -51,14 +52,16 @@ cl_device_id*       cdDevices;       // OpenCL device(s)
 
 void usage(char *name)
 {
-	printf("\nUsage: %s -i <disk_image> -d <dictionary_file>\n\n"
+	printf("\nUsage: %s -f <hash_file> -d <dictionary_file>\n\n"
 		"Options:\n\n"
 		"  -h, --help"
 		"\t\t\tShow this help\n"
-		"  -i, --diskimage"
-		"\t\tPath to your disk image\n"
+		"  -f, --hashfile"
+		"\t\tPath to your input hash file (HashExtractor output)\n"
 		"  -d, --dictionary file"
 		"\t\tPath to dictionary or alphabet file\n"
+		"  -s, --strict"
+		"\t\tStrict check (use only in case of false positives)\n"
 		"  -p, --platform"
 		"\t\tPlatform\n"
 		"  -g, --gpu"
@@ -122,7 +125,7 @@ int checkDeviceStatistics()
             clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
             value = (char*) malloc(valueSize);
             clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, valueSize, value, NULL);
-            printf("Hardware version: %s\n", value);
+            printf("OpenCL version supported: %s\n", value);
             free(value);
  
             // print software driver version
@@ -293,12 +296,8 @@ int destroyClCtx()
 
 int main (int argc, char **argv)
 {
-	char dictionaryFile[INPUT_SIZE]="\0";
-	char diskImageFile[INPUT_SIZE];
-	unsigned char * salt;
-	unsigned char * mac;
-	unsigned char * nonce;
-	unsigned char * encryptedVMK;
+	char * input_dictionary=NULL, * input_hash=NULL;
+	unsigned char *salt, *nonce, *vmk;
 	uint32_t * w_blocks_d;
 	long int totGlobalMem;
 	
@@ -332,7 +331,7 @@ int main (int argc, char **argv)
 				{0, 0, 0, 0}
 			};
 
-		opt = getopt_long (argc, argv, "hi:d:t:b:p:g:", long_options, &option_index);
+		opt = getopt_long (argc, argv, "hf:d:t:b:p:g:s", long_options, &option_index);
 		if (opt == -1)
 			break;
 		switch (opt) {
@@ -340,13 +339,14 @@ int main (int argc, char **argv)
 				usage(argv[0]);
 				exit(EXIT_FAILURE);
 				break;
-			case 'i':
+			case 'f':
 				if(strlen(optarg) >= INPUT_SIZE)
 				{
-					fprintf(stderr, "ERROR: Disk image path is bigger than %d\n", INPUT_SIZE);
+					fprintf(stderr, "ERROR: Inut hash file path is bigger than %d\n", INPUT_SIZE);
 					exit(EXIT_FAILURE);
 				}
-				strncpy(diskImageFile,optarg, strlen(optarg)+1);
+				input_hash=(char *)Calloc(INPUT_SIZE, sizeof(char));
+				strncpy(input_hash, optarg, strlen(optarg)+1);
 				break;
 			case 'd':
 				if(strlen(optarg) >= INPUT_SIZE)
@@ -354,7 +354,8 @@ int main (int argc, char **argv)
 					fprintf(stderr, "ERROR: Dictionary file path is bigger than %d\n", INPUT_SIZE);
 					exit(EXIT_FAILURE);
 				}
-				strncpy(dictionaryFile,optarg, strlen(optarg)+1);
+				input_dictionary=(char *)Calloc(INPUT_SIZE, sizeof(char));
+				strncpy(input_dictionary,optarg, strlen(optarg)+1);
 				break;
 			case 't':
 				psw_x_thread = atoi(optarg);
@@ -373,6 +374,9 @@ int main (int argc, char **argv)
 			case 'p':
 				platform_id = atoi(optarg);
 				break;
+			case 's':
+				strict_check = 1;
+				break;
 			default:
 				exit(EXIT_FAILURE);
 		}
@@ -386,14 +390,14 @@ int main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	
-	if (dictionaryFile[0] == '\0'){
+	if (input_dictionary == NULL){
 		printf("Missing dictionary file!\n");
 		usage(argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
-	if (diskImageFile[0] == '\0'){
-		printf("Missing dick image file!\n");
+	if (input_hash == NULL){
+		printf("Missing input hash file!\n");
 		usage(argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -413,13 +417,9 @@ int main (int argc, char **argv)
 
 	//****************** Data from target file *******************
 	printf("\n====================================\nExtracting data from disk image\n====================================\n\n");
-	salt = (unsigned char *) Calloc(SALT_SIZE, sizeof(unsigned char));
-	mac = (unsigned char *) Calloc(MAC_SIZE, sizeof(unsigned char));
-	nonce = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
-	encryptedVMK = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
-	if(readData(diskImageFile, &salt, &mac, &nonce, &encryptedVMK) == BIT_FAILURE)
+	if(parse_data(input_hash, &salt, &nonce, &vmk) == BIT_FAILURE)
 	{
-		fprintf(stderr, "Disk image error... exit!\n");
+		fprintf(stderr, "Input hash format error... exit!\n");
 		goto cleanup;
 	}
 	//************************************************************
@@ -435,7 +435,7 @@ int main (int argc, char **argv)
 	//**********************************************
 
 	//************* Dictionary Attack *************
-	opencl_attack(dictionaryFile, w_blocks_h, encryptedVMK, nonce, gridBlocks);
+	opencl_attack(input_dictionary, w_blocks_h, vmk, nonce, gridBlocks);
 	//*********************************************
 
 	cleanup:

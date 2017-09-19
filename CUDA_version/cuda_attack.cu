@@ -102,7 +102,7 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 
 	// ---- CUDA VARIABLES ----
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &deviceEncryptedVMK, VMK_DECRYPT_SIZE*sizeof(uint8_t)) );
-	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceEncryptedVMK, encryptedVMK, VMK_DECRYPT_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
+	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceEncryptedVMK, (encryptedVMK+16), VMK_DECRYPT_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
 	
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &deviceIV, IV_SIZE*sizeof(uint8_t)) );
 	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceIV, tmpIV, IV_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
@@ -148,7 +148,7 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 			BITCRACKER_CUDA_CHECK( cudaStreamSynchronize(stream[indexStream^1]) );
 	
 		BITCRACKER_CUDA_CHECK( cudaEventRecord(start[indexStream], stream[indexStream]) );
-		decrypt_vmk<<<gridBlocks, ATTACK_DEFAULT_THREADS, 0, stream[indexStream]>>>(indexStream, numReadPassword[indexStream], deviceFound[indexStream], deviceEncryptedVMK, deviceIV);
+		decrypt_vmk<<<gridBlocks, ATTACK_DEFAULT_THREADS, 0, stream[indexStream]>>>(indexStream, numReadPassword[indexStream], deviceFound[indexStream], deviceEncryptedVMK, deviceIV, strict_check);
 		BITCRACKER_CUDA_CHECK_LAST_ERROR();
 		BITCRACKER_CUDA_CHECK( cudaEventRecord(stop[indexStream], stream[indexStream]) );		
 		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(hostFound[indexStream], deviceFound[indexStream], sizeof(unsigned int), cudaMemcpyDeviceToHost, stream[indexStream]) );
@@ -206,11 +206,9 @@ char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedV
 
 
 #define END_STRING 0x80 //0xFF
-//16 byte per password + 1 byte per length
-__global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, unsigned char * IV) {
-    int globalIndexPassword = (threadIdx.x+blockIdx.x*blockDim.x);
-	
-	//Avoid register spilling in local memory
+__global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, unsigned char * IV, int strict_check) {
+    
+    int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
 	uint32_t hash0;
 	uint32_t hash1;
 	uint32_t hash2;
@@ -264,11 +262,10 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 	uint32_t first_hash6;
 	uint32_t first_hash7;
 
-	uint32_t indexW=(globalIndexPassword*FIXED_PASSWORD_BUFFER);
+	uint32_t indexW=(gIndex*FIXED_PASSWORD_BUFFER);
 	int8_t curr_fetch=0;
-	//int8_t stop=0;
 
-	while(globalIndexPassword < tot_psw_kernel)
+	while(gIndex < tot_psw_kernel)
 	{
 		
 		first_hash0 = UINT32_C(0x6A09E667);
@@ -290,10 +287,9 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		h = UINT32_C(0x5BE0CD19);
 
 //----------------------------------------------------- FIRST HASH ------------------------------------------------
-		indexW=(globalIndexPassword*FIXED_PASSWORD_BUFFER);
+		indexW=(gIndex*FIXED_PASSWORD_BUFFER);
 		curr_fetch=0;
 		index_generic=MAX_INPUT_PASSWORD_LEN;
-		//stop=0;
 		if(numStream == 0)
 		{
 			schedule0 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
@@ -350,11 +346,9 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
 			curr_fetch+=2;
 
-			//27
 			schedule13 = ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password0, (indexW+curr_fetch+1)) <<  8) | 0;
 			if(tex1Dfetch(w_password0, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
 			if(tex1Dfetch(w_password0, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
-			//curr_fetch+=2;
 		}
 		else
 		{
@@ -412,39 +406,18 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
 			curr_fetch+=2;
 
-			//27
 			schedule13 = ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch)) << 24) | 0 | ((uint32_t)tex1Dfetch(w_password1, (indexW+curr_fetch+1)) <<  8) | 0;
 			if(tex1Dfetch(w_password1, (indexW+curr_fetch)) == END_STRING) { index_generic=curr_fetch;  /* stop=1; */ }
 			if(tex1Dfetch(w_password1, (indexW+curr_fetch+1)) == END_STRING) { index_generic=curr_fetch+1;  /* stop=1; */ }
-			//curr_fetch+=2;		
 		}
 
 
 		if(index_generic == MAX_INPUT_PASSWORD_LEN) schedule13 = schedule13 | ((uint32_t)0x8000);
-		//64-bit
+
 		schedule14=0;
 		index_generic*=2;
 		schedule15 = ((uint8_t)((index_generic << 3) >> 8)) << 8 | ((uint8_t)(index_generic << 3));
 
-/*
-		printf("thread: %d, indexW: %d, index_generic %d, MAX_INPUT_PASSWORD_LEN %d\n", globalIndexPassword, indexW, index_generic, MAX_INPUT_PASSWORD_LEN);
-		printf("thread: %d schedule0: %x\n", globalIndexPassword, schedule0);
-		printf("thread: %d schedule1: %x\n", globalIndexPassword, schedule1);
-		printf("thread: %d schedule2: %x\n", globalIndexPassword, schedule2);
-		printf("thread: %d schedule3: %x\n", globalIndexPassword, schedule3);
-		printf("thread: %d schedule4: %x\n", globalIndexPassword, schedule4);
-		printf("thread: %d schedule5: %x\n", globalIndexPassword, schedule5);
-		printf("thread: %d schedule6: %x\n", globalIndexPassword, schedule6);
-		printf("thread: %d schedule7: %x\n", globalIndexPassword, schedule7);
-		printf("thread: %d schedule8: %x\n", globalIndexPassword, schedule8);
-		printf("thread: %d schedule9: %x\n", globalIndexPassword, schedule9);
-		printf("thread: %d schedule10: %x\n", globalIndexPassword, schedule10);
-		printf("thread: %d schedule11: %x\n", globalIndexPassword, schedule11);
-		printf("thread: %d schedule12: %x\n", globalIndexPassword, schedule12);
-		printf("thread: %d schedule13: %x\n", globalIndexPassword, schedule13);
-		printf("thread: %d schedule14: %x\n", globalIndexPassword, schedule14);
-		printf("thread: %d schedule15: %x\n", globalIndexPassword, schedule15);
-*/
 		ALL_SCHEDULE_LAST16()
 
 		ROUND(a, b, c, d, e, f, g, h,  schedule0, 0x428A2F98)
@@ -642,7 +615,7 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		first_hash6 += g;
 		first_hash7 += h;
 
-//----------------------------------------------------- LOOP HASH ------------------------------------------------
+		//----------------------------------------------------- LOOP HASH ------------------------------------------------
 		
 		hash0=0;
 		hash1=0;
@@ -657,7 +630,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 	//#pragma unroll 1048576
 		for(index_generic=0; index_generic < ITERATION_NUMBER/2; index_generic++)
 		{
-			//Prima parte
 			a = UINT32_C(0x6A09E667);
 			b = UINT32_C(0xBB67AE85);
 			c = UINT32_C(0x3C6EF372);
@@ -764,7 +736,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			hash6 = UINT32_C(0x1F83D9AB) + g;
 			hash7 = UINT32_C(0x5BE0CD19) + h;
 
-			//Seconda parte
 			a = hash0;
 			b = hash1;
 			c = hash2;
@@ -774,7 +745,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			g = hash6;
 			h = hash7;
 
-			//I primi 4 valori dei blocchi W sono sempre uguali
 			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  0, 0x428A2F98, 0)
 			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  1, 0x71374491, 0)
 			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, 0)
@@ -855,7 +825,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 
 		for(index_generic=ITERATION_NUMBER/2; index_generic < ITERATION_NUMBER; index_generic++)
 		{
-			//Prima parte
 			a = UINT32_C(0x6A09E667);
 			b = UINT32_C(0xBB67AE85);
 			c = UINT32_C(0x3C6EF372);
@@ -962,7 +931,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			hash6 = UINT32_C(0x1F83D9AB) + g;
 			hash7 = UINT32_C(0x5BE0CD19) + h;
 
-			//Seconda parte
 			a = hash0;
 			b = hash1;
 			c = hash2;
@@ -972,7 +940,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 			g = hash6;
 			h = hash7;
 
-			//I primi 4 valori dei blocchi W sono sempre uguali
 			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  0, 0x428A2F98, 0)
 			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  1, 0x71374491, 0)
 			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, 0)
@@ -1050,13 +1017,7 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 
 			indexW += SINGLE_BLOCK_W_SIZE;
 		}
-//----------------------------------------------------- EXP KEY 256 ------------------------------------------------
-		// with Nb=4 and Nk=256 -> Nr=15 so (14+1)*Nb=60 32b-words are needed
-		// 48 words
-		//----- 1
-		// AddRoundKey
 
-		/* REUSE OF SCHEDULE VARIABLES */
 		schedule0 = __byte_perm(((uint32_t *)(IV))[0], 0, 0x0123) ^ hash0;
         schedule1 = __byte_perm(((uint32_t *)(IV+4))[0], 0, 0x0123) ^ hash1;
         schedule2 = __byte_perm(((uint32_t *)(IV+8))[0], 0, 0x0123) ^ hash2;
@@ -1091,7 +1052,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 		
-		//----- 2
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1117,7 +1077,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 
 
-		//----- 3
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1143,8 +1102,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 		
-
-		//----- 4
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1169,8 +1126,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 
-
-		//----- 5
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1196,7 +1151,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 
 
-		//----- 6
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1221,7 +1175,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
 		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
 
-		// last 4 words
 		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
 			  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
 			  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
@@ -1230,7 +1183,6 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		hash2 ^= hash1;
 		hash3 ^= hash2;
 
-		// NR-th round
 		schedule0 = (TS2[(schedule4 >> 24)       ] & 0xFF000000) ^
 			 (TS3[(schedule5 >> 16) & 0xFF] & 0x00FF0000) ^
 			 (TS0[(schedule6 >>  8) & 0xFF] & 0x0000FF00) ^
@@ -1256,20 +1208,31 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		schedule6 = __byte_perm(schedule2, 0, 0x0123);
 		schedule7 = __byte_perm(schedule3, 0, 0x0123);
 		
-// ------ TEST VMK ------
 		if (
-			((vmkKey[0] ^ ((uint8_t) schedule4)) == VMK_SIZE) &&
+			((vmkKey[0] ^ ((uint8_t) schedule4)) == 0x2c) &&
 			((vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))) == 0x00) &&
-			((vmkKey[8] ^ ((uint8_t) schedule6)) <= 0x05) &&
 			((vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))) == 0x20)
 		)
 		{
-			*found = globalIndexPassword;
-			break;
+			if(
+				(strict_check == 0 && ((vmkKey[8] ^ ((uint8_t) schedule6)) <= 0x05))
+				||
+				(strict_check == 1 && ((vmkKey[8] ^ ((uint8_t) schedule6)) == 0x03))
+			)
+			{
+				printf("schedule4=%x, char: %x, >>8: %x\n", schedule4, (uint8_t)schedule4, (uint8_t) (schedule4 >> 8));
+				printf("(vmkKey[0] ^ ((uint8_t) schedule4)): %x\n", (vmkKey[0] ^ ((uint8_t) schedule4)));
+				printf("(vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))): %x\n", (vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))));
+				printf("schedule6=%x, char: %x, >>8: %x\n", schedule6, (uint8_t)schedule6, (uint8_t) (schedule6 >> 8));
+				printf("(vmkKey[8] ^ ((uint8_t) schedule6)): %x\n", (vmkKey[8] ^ ((uint8_t) schedule6)));
+				printf("(vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))): %x\n", (vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))));
+
+				*found = gIndex;
+				break;
+			}	
 		}
 
-// ------ LOOP ------
-		globalIndexPassword += (blockDim.x * gridDim.x);
+		gIndex += (blockDim.x * gridDim.x);
 	}
 
 	return;

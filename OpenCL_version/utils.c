@@ -21,6 +21,25 @@
 
 #include "bitcracker.h"
 
+/* John The Ripper function */
+char *strtokm(char *s1, const char *delims)
+{
+	static char *last = NULL;
+	char *endp;
+
+	if (!s1)
+		s1 = last;
+	if (!s1 || *s1 == 0)
+		return last = NULL;
+	endp = strpbrk(s1, delims);
+	if (endp) {
+		*endp = '\0';
+		last = endp + 1;
+	} else
+		last = NULL;
+	return s1;
+}
+
 void * Calloc(size_t len, size_t size) {
 	void * ptr = NULL;
 	if( size <= 0)
@@ -54,110 +73,116 @@ void print_hex(unsigned char *str, int len)
 		printf("%02x", str[i]);
 }
 
-int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** mac, unsigned char ** nonce, unsigned char ** encryptedVMK)
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk)
 {
-	int match = 0;
-	const char signature[9] = "-FVE-FS-";
-	int version = 0;
-	unsigned char vmk_entry[4] = { 0x02, 0x00, 0x08, 0x00 };
-	unsigned char key_protection_type[2] = { 0x00, 0x20 };
-	unsigned char value_type[2] = { 0x00, 0x05 };
-	char c;
-	int i = 0;
-	int j, fileLen;
+	char * hash;
+	char *p;
+	int i, salt_len, iterations, vmk_size, nonce_len;
+	FILE * fphash;
+	char tmp[2];
+	int j=0;
 
-	if( !salt || !mac || !nonce || !encryptedVMK ) {
-		fprintf(stderr, "Input error\n");
-		return BIT_FAILURE;
+	(*salt) = (unsigned char *) Calloc(SALT_SIZE, sizeof(unsigned char));
+	(*nonce) = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
+	(*vmk) = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
+	hash = (char *) Calloc(INPUT_HASH_SIZE, sizeof(char));
+
+	if(!input_hash)
+	{
+		fprintf(stderr, "No input hash provided\n");
+		goto out;
 	}
 
-	printf("Opening file %s\n", encryptedImagePath);
-	FILE * encryptedImage = fopen(encryptedImagePath, "r");
-	if (!encryptedImage) {
-		fprintf(stderr, "! %s : %s\n", encryptedImagePath, strerror(errno));
-		return BIT_FAILURE;
+	fphash = fopen(input_hash, "r");
+	if (!fphash) {
+		fprintf(stderr, "! %s : %s\n", input_hash, strerror(errno));
+		goto out;
+	}
+	fgets(hash, INPUT_HASH_SIZE, fphash);
+	fclose(fphash);	
+	if(!hash)
+	{
+		fprintf(stderr, "No correct input hash provided\n");
+		goto out;
 	}
 
-	fseek(encryptedImage, 0, SEEK_END);
-	fileLen = ftell(encryptedImage);
-	fseek(encryptedImage, 0, SEEK_SET);
-	for (j = 0; j < fileLen; j++) {
-		c = fgetc(encryptedImage);
-		while (i < 8 && (unsigned char)c == signature[i]) {
-			c = fgetc(encryptedImage);
-			i++;
-		}
-		if (i == 8) {
-			match = 1;
-			fprintf(stderr, "Signature found at 0x%08lx\n", (ftell(encryptedImage) - i - 1));
-			fseek(encryptedImage, 1, SEEK_CUR);
-			version = fgetc(encryptedImage);
-			fprintf(stderr, "Version: %d ", version);
-			if (version == 1)
-				fprintf(stderr, "(Windows Vista)\n");
-			else if (version == 2)
-				fprintf(stderr, "(Windows 7 or later)\n");
-			else {
-				fprintf(stderr, "\nInvalid version, looking for a signature with valid version...\n");
-			}
-		}
-		i = 0;
-		while (i < 4 && (unsigned char)c == vmk_entry[i]) {
-			c = fgetc(encryptedImage);
-			i++;
-		}
+	printf("Hash file %s:\n%s\n", input_hash, hash);
 
-		if (i == 4) {
-			fprintf(stderr, "VMK entry found at 0x%08lx\n", (ftell(encryptedImage) - i - 3));
-			fseek(encryptedImage, 27, SEEK_CUR);
-			if (
-					( (unsigned char)fgetc(encryptedImage) == key_protection_type[0]) &&
-					( (unsigned char)fgetc(encryptedImage) == key_protection_type[1])
-			   ) 
-			{
-				fprintf(stderr, "Key protector with user password found\n");
-				fseek(encryptedImage, 12, SEEK_CUR);
-				fillBuffer(encryptedImage, *salt, SALT_SIZE);
-				fseek(encryptedImage, 83, SEEK_CUR);
-				if (((unsigned char)fgetc(encryptedImage) != value_type[0]) || ((unsigned char)fgetc(encryptedImage) != value_type[1])) {
-					fprintf(stderr, "Error: VMK not encrypted with AES-CCM\n");
-					//ret failure?	
-				}
-
-				fseek(encryptedImage, 3, SEEK_CUR);
-				fillBuffer(encryptedImage, *nonce, NONCE_SIZE);
-				fillBuffer(encryptedImage, *mac, MAC_SIZE);
-				fillBuffer(encryptedImage, *encryptedVMK, VMK_SIZE);
-
-				fprintf(stdout, "Nonce:\n");
-				print_hex(*nonce, NONCE_SIZE);
-				fprintf(stdout, "\n");
-
-				fprintf(stdout, "MAC:\n");
-				print_hex(*mac, MAC_SIZE);
-				fprintf(stdout, "\n");
-
-				fprintf(stdout, "VMK:\n");
-				print_hex(*encryptedVMK, VMK_SIZE);
-				fprintf(stdout, "\n");
-				break;
-			}
-		}
-
-		i = 0;
+	if (strncmp(hash, HASH_TAG, HASH_TAG_LEN) != 0)
+	{
+		fprintf(stderr, "Wrong hash format\n");
+		goto out;
 	}
 
-	fclose(encryptedImage);
+	hash += HASH_TAG_LEN;
+	
+	p = strtokm(hash, "$"); // version
+	p = strtokm(NULL, "$"); // salt length
 
-	if (match == 0) {
-		fprintf(stderr, "Error while extracting data: No signature found!\n");
-		return BIT_FAILURE;
+	salt_len = atoi(p);
+	if(salt_len != SALT_SIZE)
+	{
+		fprintf(stderr, "Wrong Salt size\n");
+		goto out;
 	}
 
+	p = strtokm(NULL, "$"); // salt
+	for (i = 0, j = 0; i < salt_len*2; i+=2, j++)
+	{
+		tmp[0] = p[i];
+		tmp[1] = p[i+1];
+		long int ret = strtol(tmp, NULL, 16);
+		(*salt)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
+	}
+
+	p = strtokm(NULL, "$"); // iterations
+	iterations = atoi(p);
+	p = strtokm(NULL, "$"); // nonce length
+	nonce_len = atoi(p);
+	if(nonce_len != NONCE_SIZE)
+	{
+		fprintf(stderr, "Wrong Nonce size\n");
+		goto out;
+	}
+
+	p = strtokm(NULL, "$"); // nonce
+	for (i = 0, j = 0; i < NONCE_SIZE*2; i+=2, j++)
+	{
+		tmp[0] = p[i];
+		tmp[1] = p[i+1];
+		long int ret = strtol(tmp, NULL, 16);
+		(*nonce)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
+	}
+
+	p = strtokm(NULL, "$"); // data_size
+	
+	vmk_size = atoi(p);
+	if(vmk_size != VMK_SIZE)
+	{
+		fprintf(stderr, "Wrong VMK size\n");
+		goto out;
+	}
+	
+	p = strtokm(NULL, "$"); // data
+	for (i = 0, j = 0; i < vmk_size*2; i+=2, j++)
+	{
+		tmp[0] = p[i];
+		tmp[1] = p[i+1];
+		long int ret = strtol(tmp, NULL, 16);
+		(*vmk)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
+	}
+	
 	return BIT_SUCCESS;
+
+	out:
+		free(*salt);
+		free(*nonce);
+		free(*vmk);
+
+		return BIT_FAILURE;
 }
 
-int readFilePassword(unsigned char ** buf, int maxNumPsw, FILE *fp) {
+int readFilePassword(char ** buf, int maxNumPsw, FILE *fp) {
 	int i=0, size;
 	char tmp[FIXED_PASSWORD_BUFFER];
 	memset(tmp, 0, FIXED_PASSWORD_BUFFER);

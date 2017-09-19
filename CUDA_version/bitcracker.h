@@ -39,11 +39,14 @@
 #define MAC_SIZE 16
 #define NONCE_SIZE 12
 #define IV_SIZE 16
-#define VMK_SIZE 44
+#define VMK_SIZE 60
 #define VMK_DECRYPT_SIZE 16
 #define DICT_BUFSIZE	(50*1024*1024)
 #define MAX_PLEN 32
 
+#define HASH_TAG              "$bitlocker$"
+#define HASH_TAG_LEN          (sizeof(HASH_TAG) - 1)
+#define INPUT_HASH_SIZE			210
 #ifndef UINT32_C
 #define UINT32_C(c) c ## UL
 #endif
@@ -64,7 +67,6 @@
 #define HASH_SIZE_STRING 32
 
 #define ATTACK_DEFAULT_THREADS 1024
-
 
 #define BIT_SUCCESS 0
 #define BIT_FAILURE 1
@@ -88,17 +90,17 @@ extern int gpu_id;
 extern int psw_x_thread;
 extern int tot_psw;
 extern size_t size_psw;
+extern int strict_check;
 
 /* ++++++++++++++++++++++++++++++++++++++ DEVICE FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIteration, unsigned char padding[PADDING_SIZE], uint32_t * w_blocks);
-__global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int numPassword, int *found, unsigned char * vmkKey, unsigned char * IV);
+__global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int numPassword, int *found, unsigned char * vmkKey, unsigned char * IV, int check);
 
 /* ++++++++++++++++++++++++++++++++++++++ HOST FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 int w_block_precomputed(unsigned char * salt, uint32_t * w_blocks_d);
-
 int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
-int readData(char * encryptedImagePath, unsigned char ** salt, unsigned char ** mac, unsigned char ** nonce, unsigned char ** encryptedVMK);
-
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk);
+char *strtokm(char *s1, const char *delims);
 char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks);
 void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numPassword);
 

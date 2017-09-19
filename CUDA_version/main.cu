@@ -26,16 +26,19 @@ int psw_x_thread=8;
 int tot_psw=0;
 size_t size_psw=0;
 size_t tot_word_mem=(SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t));
+int strict_check=0;
 
 void usage(char *name){
-	printf("\nUsage: %s -i <disk_image> -d <dictionary_file>\n\n"
+	printf("\nUsage: %s -f <hash_file> -d <dictionary_file>\n\n"
 		"Options:\n\n"
 		"  -h, --help"
 		"\t\t\tShow this help\n"
-		"  -i, --diskimage"
-		"\t\tPath to your disk image\n"
+		"  -f, --hashfile"
+		"\t\tPath to your input hash file (HashExtractor output)\n"
 		"  -d, --dictionary file"
 		"\t\tPath to dictionary or alphabet file\n"
+		"  -s, --strict"
+		"\t\tStrict check (use only in case of false positives)\n"
 		"  -g, --gpu"
 		"\t\tGPU device number\n"
 		"  -t, --passthread"
@@ -97,14 +100,10 @@ int getGPUStats()
 
 int main (int argc, char **argv)
 {
-	char dictionaryFile[INPUT_SIZE];
-	char diskImageFile[INPUT_SIZE];
-	unsigned char *salt;
-	unsigned char *mac;
-	unsigned char *nonce;
-	unsigned char *encryptedVMK;
+	char * input_dictionary=NULL, * input_hash=NULL;
+	unsigned char *salt, *nonce, *vmk;
 	uint32_t * w_blocks_d;
-
+	
 	int gridBlocks = 1;
 	int opt, option_index = 0;
 
@@ -121,7 +120,7 @@ int main (int argc, char **argv)
 		static struct option long_options[] =
 			{
 				{"help", no_argument, 0, 'h'},
-				{"diskimage", required_argument, 0, 'i'},
+				{"hashfile", required_argument, 0, 'f'},
 				{"dictionary", required_argument, 0, 'd'},
 				//{"info", required_argument, 0, 'o'},
 				//{"cuda.threads", required_argument, 0, 't'},
@@ -131,21 +130,22 @@ int main (int argc, char **argv)
 				{0, 0, 0, 0}
 			};
 
-		opt = getopt_long (argc, argv, "hi:d:t:b:g:", long_options, &option_index);
+		opt = getopt_long(argc, argv, "hf:d:t:b:g:s", long_options, &option_index);
 		if (opt == -1)
 			break;
 		switch (opt) {
 			case 'h':
 				usage(argv[0]);
-				exit(1);
+				exit(EXIT_FAILURE);
 				break;
-			case 'i':
+			case 'f':
 				if(strlen(optarg) >= INPUT_SIZE)
 				{
-					fprintf(stderr, "ERROR: Disk image path is bigger than %d\n", INPUT_SIZE);
+					fprintf(stderr, "ERROR: Inut hash file path is bigger than %d\n", INPUT_SIZE);
 					exit(EXIT_FAILURE);
 				}
-				strncpy(diskImageFile,optarg, strlen(optarg)+1);
+				input_hash=(char *)Calloc(INPUT_SIZE, sizeof(char));
+				strncpy(input_hash, optarg, strlen(optarg)+1);
 				break;
 			case 'd':
 				if(strlen(optarg) >= INPUT_SIZE)
@@ -153,7 +153,8 @@ int main (int argc, char **argv)
 					fprintf(stderr, "ERROR: Dictionary file path is bigger than %d\n", INPUT_SIZE);
 					exit(EXIT_FAILURE);
 				}
-				strncpy(dictionaryFile,optarg, strlen(optarg)+1);
+				input_dictionary=(char *)Calloc(INPUT_SIZE, sizeof(char));
+				strncpy(input_dictionary,optarg, strlen(optarg)+1);
 				break;
 			case 't':
 				psw_x_thread = atoi(optarg);
@@ -169,6 +170,9 @@ int main (int argc, char **argv)
 			case 'g':
 				gpu_id = atoi(optarg);
 				break;
+			case 's':
+				strict_check = 1;
+				break;
 			default:
 				exit(EXIT_FAILURE);
 		}
@@ -182,19 +186,18 @@ int main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	
-	if (dictionaryFile == NULL){
+	if (input_dictionary == NULL){
 		printf("Missing dictionary file!\n");
 		usage(argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
-	if (diskImageFile[0] == '\0'){
-		printf("Missing dick image file!\n");
+	if (input_hash == NULL){
+		printf("Missing input hash file!\n");
 		usage(argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	//***********************************************************
-
 
 	tot_psw=(ATTACK_DEFAULT_THREADS*gridBlocks*psw_x_thread);
 	size_psw = tot_psw * FIXED_PASSWORD_BUFFER * sizeof(uint8_t);
@@ -208,14 +211,10 @@ int main (int argc, char **argv)
 
 	//****************** Data from target file *******************
 	printf("\n====================================\nExtracting data from disk image\n====================================\n\n");
-	salt = (unsigned char *) Calloc(SALT_SIZE, sizeof(unsigned char));
-	mac = (unsigned char *) Calloc(MAC_SIZE, sizeof(unsigned char));
-	nonce = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
-	encryptedVMK = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
 
-	if(readData(diskImageFile, &salt, &mac, &nonce, &encryptedVMK) == BIT_FAILURE)
+	if(parse_data(input_hash, &salt, &nonce, &vmk) == BIT_FAILURE)
 	{
-		fprintf(stderr, "Disk image error... exit!\n");
+		fprintf(stderr, "Input hash format error... exit!\n");
 		goto cleanup;
 	}
 	//************************************************************
@@ -231,14 +230,11 @@ int main (int argc, char **argv)
 	//**********************************************
 
 	//************* Dictionary Attack *************
-	cuda_attack(dictionaryFile, w_blocks_d, encryptedVMK, nonce, gridBlocks);
+	cuda_attack(input_dictionary, w_blocks_d, vmk, nonce, gridBlocks);
 	//*********************************************
 
 cleanup:
-
 	BITCRACKER_CUDA_CHECK( cudaFree(w_blocks_d) );
-	
 	printf("\n");
-
 	return 0;
 }

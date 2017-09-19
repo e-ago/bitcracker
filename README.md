@@ -1,7 +1,7 @@
-Bitcracker
+BitCracker
 ========
 
-BitCracker is the first open source BitLocker password cracker tool
+BitCracker is the first open source BitLocker password cracking tool
 
 Introduction
 ===
@@ -12,7 +12,7 @@ BitCracker is a mono-GPU password cracking tool for memory units encrypted with 
 ![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
 
 Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1 and Windows 10 (both compatible and non-compatible mode).
-here we present two implementations: CUDA and OpenCL.
+Here we present two implementations: CUDA and OpenCL.
 
 Requirements
 ===
@@ -22,33 +22,60 @@ For CUDA implementation, you need at least CUDA 7.5 and an NVIDIA GPU with minim
 How To
 ===
 
-Use the buil.sh script to run makefiles within CUDA_version and OpenCL_version.
+Use the build.sh script to build 3 executables:
+
+- hash extractor
+- BitCracker CUDA version
+- BitCracker OpenCL version
+
+The executables are stored in the build directory.
+<br>
+Before starting the attack, you need to run bitcracker_hash to extract the hash from the encrypted memory unit.
 
 ```
-> ./bitcracker_cuda -h
+> ./build/bitcracker_hash -h
 
-Usage: ./bitcracker_cuda -i <disk_image> -d <dictionary_file>
+Usage: ./build/bitcracker_hash -i <Encrypted memory unit> -o <output file>
 
 Options:
 
-  -h, --help              Show this help
-  -i, --diskimage         Path to your disk image
-  -d, --dictionary file   Path to dictionary or alphabet file
-  -g, --gpu               GPU device number
-  -t, --passthread        Set the number of password per thread threads
-  -b, --blocks            Set the number of blocks
+  -h, --help		Show this help
+  -i, --disk		Path of memory unit encrypted with BitLocker
+  -o, --outfile		Output file
 ```
 
-You can use the run.sh script to execute two simple runs using the encrypted images we provide in this repo:
+The extracted hash is fully compatible with the John The Ripper format (see next Section).<br>
+
+Then you can use the output hash file to run the BitCracker attack.
+
+```
+> ./build/bitcracker_cuda -h
+
+Usage: ./build/bitcracker_cuda -f <hash_file> -d <dictionary_file>
+
+Options:
+
+  -h, --help		Show this help
+  -f, --hashfile 	Path to your input hash file (HashExtractor output)
+  -s, --strict		Strict check (use only in case of false positives)
+  -d, --dictionary	Path to dictionary or alphabet file
+  -g, --gpu 		GPU device number
+  -t, --passthread	Set the number of password per thread threads
+  -b, --blocks		Set the number of blocks
+```
+
+N.B. In case of false positives, you can use the -s option (empirically improved password check). 
+
+In the the run_test.sh script there are several attack examples using the encrypted images provided in this repo:
 * imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
 * imgWin8: memory unit encrypted with BitLocker using Windows 8 Enteprise edition OS
 * imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
 * imgWin10NonCompatible.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
-* imgWin10CompatibleLong27.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS using the longest possible password
+* imgWin10CompatibleLong27.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS using the longest possible password (27 characters)
 
-Currently, BitCracker is able to evaluate passwords having length  between 8 (minimum password length) and 27 characters (implementation reasons).
-In the next release, the maximum password lenght will be dynamic.
-BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; thus you need to provide your own input dictionary.
+Currently, BitCracker is able to evaluate passwords having length between 8 (minimum password length) and 27 characters (implementation reasons).
+
+BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to provide your own input dictionary.
 
 Performance
 ===
@@ -80,6 +107,13 @@ John The Ripper
 We released the OpenCL version as a plugin of the John The Ripper (bleeding jumbo) suite:
 * Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker <br />
 * JtR source code: https://github.com/magnumripper/JohnTheRipper
+
+Future Works
+===
+
+In the next relese:
+- The maximum password lenght will be dynamic
+- Improve strict check with optional MAC verification to avoid any false positive
 
 References, credits and contacts
 ===
