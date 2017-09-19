@@ -126,7 +126,6 @@ int main (int argc, char **argv)
 				{"blocks", required_argument, 0, 'b'},
 				{"gpu", required_argument, 0, 'g'},
 				{"strict", optional_argument, 0, 's'},
-				strict
 				{0, 0, 0, 0}
 			};
 
