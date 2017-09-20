@@ -28,7 +28,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
-#include "sha256_header.h"
 #include <sys/time.h>
 
 #ifdef __APPLE__            
