@@ -1114,6 +1114,8 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global unsigned char *
 		if (
 			((vmkKey[0] ^ ((unsigned char) schedule4)) == 0x2c) &&
 			((vmkKey[1] ^ ((unsigned char) (schedule4 >> 8))) == 0x00) &&
+                        ((vmkKey[4] ^ ((unsigned char) schedule5)) == 0x01) &&
+                        ((vmkKey[5] ^ ((unsigned char) (schedule5 >> 8))) == 0x00) &&
 #if STRICT_CHECK == 1
                         ((vmkKey[8] ^ ((unsigned char) schedule6)) == 0x03) &&
 #else                        

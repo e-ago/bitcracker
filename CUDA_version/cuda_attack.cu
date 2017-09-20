@@ -1167,6 +1167,8 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 		if (
 			((vmkKey[0] ^ ((uint8_t) schedule4)) == 0x2c) &&
 			((vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))) == 0x00) &&
+			((vmkKey[4] ^ ((uint8_t) schedule5)) == 0x01) &&
+			((vmkKey[5] ^ ((uint8_t) (schedule5 >> 8))) == 0x00) &&
 			((vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))) == 0x20)
 		)
 		{
