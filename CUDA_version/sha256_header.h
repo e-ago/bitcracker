@@ -31,22 +31,18 @@
 
 
 #if (__CUDA_ARCH__ >= 500)
-		//	IADD3 R23, R25, R14, R16;
 		static __device__ __forceinline__ uint32_t IADD3(uint32_t a, uint32_t b, uint32_t c) {
 			uint32_t d;
 			asm("iadd3 %0, %1, %2, %3;" : "=r"(d) : "r"(a), "r"(b), "r"(c));
 			return d;
 		}
 
-		//LOP3.LUT R14, R22, R16, R19, 0x96;
 		static __device__ __forceinline__ uint32_t LOP3LUT_XOR(uint32_t a, uint32_t b, uint32_t c) {
 			uint32_t d;
 			asm("lop3.b32 %0, %1, %2, %3, 0x96;" : "=r"(d) : "r"(a), "r"(b), "r"(c));
 			return d;
 		}
 
-		//a ^ ((c ^ a) & b)
-		//g ^ (e & (f ^ g))
 		static __device__ __forceinline__ uint32_t LOP3LUT_XORAND(uint32_t a, uint32_t b, uint32_t c) {
 			uint32_t d;
 			asm("lop3.b32 %0, %1, %2, %3, 0xb8;" : "=r"(d) : "r"(a), "r"(b), "r"(c));
@@ -76,8 +72,6 @@
             return  ((a & (b | c)) | (b & c));
         }
 #endif
-
-
 
 #define SCHEDULE0()  \
 		schedule0 = schedule16 + schedule25 \
@@ -313,8 +307,6 @@
 #define ROR13(x) (((x) << 19) | ((x) >> 13))
 #define ROR22(x) (((x) << 10) | ((x) >> 22))
 
-//		h += LOP3LUT_XOR(ROR6(e), ROR11(e), ROR25(e)) + (g ^ (e & (f ^ g))) + UINT32_C(k) + W; \
-
 #define ROUND(a, b, c, d, e, f, g, h, W, k) \
 		h += LOP3LUT_XOR(ROR6(e), ROR11(e), ROR25(e)) + LOP3LUT_XORAND(g,e,f) + UINT32_C(k) + W; \
 		d += h;  \
@@ -325,7 +317,6 @@
 		d += h;  \
 		h += LOP3LUT_XOR(ROR2(a), ROR13(a), ROR22(a)) + LOP3LUT_ANDOR(a,b,c);
 
-//W-block evaluate
 #define LOADSCHEDULE_WPRE(i, j)  \
 		w_blocks_d[j] =                           \
 			  (uint32_t)block[i * 4 + 0] << 24  \
@@ -337,39 +328,3 @@
 		w_blocks_d[i] = w_blocks_d[i - 16] + w_blocks_d[i - 7]  \
 			+ (ROR(w_blocks_d[i - 15], 7) ^ ROR(w_blocks_d[i - 15], 18) ^ (w_blocks_d[i - 15] >> 3))  \
 			+ (ROR(w_blocks_d[i - 2], 17) ^ ROR(w_blocks_d[i - 2], 19) ^ (w_blocks_d[i - 2] >> 10));
-
-
-		
-
-
-/*
-static __device__ __forceinline__ uint2 ROR2(const uint2 a, const int offset)
-{
-uint2 result;
-#if __CUDA_ARCH__ > 300
-	if (offset < 32) {
-		asm("shf.r.wrap.b32 %0, %1, %2, %3;" : "=r"(result.x) : "r"(a.x), "r"(a.y), "r"(offset));
-		asm("shf.r.wrap.b32 %0, %1, %2, %3;" : "=r"(result.y) : "r"(a.y), "r"(a.x), "r"(offset));
-	} else // if (offset < 64)
-	{
-		// offset SHOULD BE < 64 !
-		asm("shf.r.wrap.b32 %0, %1, %2, %3;" : "=r"(result.x) : "r"(a.y), "r"(a.x), "r"(offset));
-		asm("shf.r.wrap.b32 %0, %1, %2, %3;" : "=r"(result.y) : "r"(a.x), "r"(a.y), "r"(offset));
-	}
-#else
-	if (!offset)
-		result = a;
-	else if (offset < 32) {
-		result.y = ((a.y >> offset) | (a.x << (32 - offset)));
-		result.x = ((a.x >> offset) | (a.y << (32 - offset)));
-	} else if (offset == 32) {
-		result.y = a.x;
-		result.x = a.y;
-	} else {
-		result.y = ((a.x >> (offset - 32)) | (a.y << (64 - offset)));
-		result.x = ((a.y >> (offset - 32)) | (a.x << (64 - offset)));
-	}
-#endif
-	return result;
-}
-*/
