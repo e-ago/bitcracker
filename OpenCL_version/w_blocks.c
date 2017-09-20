@@ -1,3 +1,24 @@
+/*
+ * BitCracker: BitLocker password cracking tool, OpenCL version.
+ * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
+ *                          Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
+ * 
+ * This file is part of BitCracker.
+ * 
+ * BitCracker is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * BitCracker is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with BitCracker. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "bitcracker.h"
 
 unsigned int * w_block_precomputed(unsigned char * salt)
@@ -71,15 +92,16 @@ unsigned int * w_block_precomputed(unsigned char * salt)
     cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&source_str_wbocks, (const size_t *)&source_size_wbocks, &ciErr1);        
     CL_ERROR(ciErr1);
     ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), "-I .", NULL, NULL);
-    CL_ERROR(ciErr1);
-
     ret = clGetProgramBuildInfo(cpProgram, cdDevices[gpu_id], CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
     CL_ERROR(ret);
     char *buffer = calloc(len, sizeof(char));
     ret_cl_log = clGetProgramBuildInfo(cpProgram, cdDevices[gpu_id], CL_PROGRAM_BUILD_LOG, len, buffer, NULL);
     CL_ERROR(ret_cl_log);
-    if(ret != CL_SUCCESS)
-        printf("BUILD LOG: \n%s\n\n", buffer);   
+    if(ret_cl_log == CL_SUCCESS && ciErr1 != CL_SUCCESS)
+    {
+        printf("Kernel Blocks Build Log: \n%s\n\n", buffer);
+        CL_ERROR(ciErr1);
+    }
 
     // Create the kernel
     ckKernelWBlocks = clCreateKernel(cpProgram, "opencl_bitcracker_wblocks", &ciErr1);

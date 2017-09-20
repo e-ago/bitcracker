@@ -1,5 +1,23 @@
-#include "sha256_header.h"
-
+/*
+ * BitCracker: BitLocker password cracking tool, OpenCL version.
+ * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
+ *                          Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
+ * 
+ * This file is part of BitCracker.
+ * 
+ * BitCracker is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * BitCracker is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with BitCracker. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define AUTHENTICATOR_LENGTH 16
@@ -31,24 +49,26 @@
 
 #define CUDA_GRID_THREAD_X 32 /* 32 - 16*/
 #define CUDA_GRID_THREAD_Y 32
-//#define MAX_PASSWD_SINGLE_KERNEL 16
 #define MAX_SOURCE_SIZE (0x100000)  
+
+#define ROR(x, i) (((x) << (32 - (i))) | ((x) >> (i)))
+
+#define LOADSCHEDULE_WPRE(i, j)  \
+                w_blocks_d[j] =                           \
+                          (unsigned int)block[i * 4 + 0] << 24  \
+                        | (unsigned int)block[i * 4 + 1] << 16  \
+                        | (unsigned int)block[i * 4 + 2] <<  8  \
+                        | (unsigned int)block[i * 4 + 3];
+        
+#define SCHEDULE_WPRE(i)  \
+                w_blocks_d[i] = w_blocks_d[i - 16] + w_blocks_d[i - 7]  \
+                        + (ROR(w_blocks_d[i - 15], 7) ^ ROR(w_blocks_d[i - 15], 18) ^ (w_blocks_d[i - 15] >> 3))  \
+                        + (ROR(w_blocks_d[i - 2], 17) ^ ROR(w_blocks_d[i - 2], 19) ^ (w_blocks_d[i - 2] >> 10));
+
 
 __kernel void opencl_bitcracker_wblocks(int totNumIteration, __global unsigned char * salt_d, __global unsigned char * padding_d, __global unsigned int * w_blocks_d) 
 { 
-/*	
-	size_t get_global_size(uint dim);
-	size_t get_global_id(uint dim);
-	size_t get_local_size(uint dim);
-	size_t get_local_id(uint dim);
-
-	blockIdx.x*blockDim.x+threadIdx.x = get_global_id(0)
-	LocalSize = blockDim.x
-	GlobalSize = blockDim.x * gridDim.x
-
-*/
-
-	unsigned long loop = get_global_id(0); //(threadIdx.x+blockIdx.x*blockDim.x) + (threadIdx.y+blockIdx.y*blockDim.y) * blockDim.x * gridDim.x;
+	unsigned long loop = get_global_id(0);
 	unsigned char block[SINGLE_BLOCK_W_SIZE];
 	
 	int i, j;

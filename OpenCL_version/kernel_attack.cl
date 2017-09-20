@@ -185,8 +185,6 @@ __constant unsigned int TS3[256] = {
 #define HASH_SIZE_STRING 32
 #define END_STRING 0x80
 
-#define ROR(x, i) (((x) << (32 - (i))) | ((x) >> (i)))
-
 #define BLOCK_SIZE 64
 
 #define ROR7(x) (((x) << 25) | ((x) >> 7))
@@ -438,18 +436,6 @@ __constant unsigned int TS3[256] = {
                 h += LOP3LUT_XOR(ROR6(e), ROR11(e), ROR25(e)) + LOP3LUT_XORAND(g,e,f) + k +  w_blocks_d[indexW+i]; \
                 d += h;  \
                 h += LOP3LUT_XOR(ROR2(a), ROR13(a), ROR22(a)) + LOP3LUT_ANDOR(a,b,c);
-
-#define LOADSCHEDULE_WPRE(i, j)  \
-                w_blocks_d[j] =                           \
-                          (unsigned int)block[i * 4 + 0] << 24  \
-                        | (unsigned int)block[i * 4 + 1] << 16  \
-                        | (unsigned int)block[i * 4 + 2] <<  8  \
-                        | (unsigned int)block[i * 4 + 3];
-        
-#define SCHEDULE_WPRE(i)  \
-                w_blocks_d[i] = w_blocks_d[i - 16] + w_blocks_d[i - 7]  \
-                        + (ROR(w_blocks_d[i - 15], 7) ^ ROR(w_blocks_d[i - 15], 18) ^ (w_blocks_d[i - 15] >> 3))  \
-                        + (ROR(w_blocks_d[i - 2], 17) ^ ROR(w_blocks_d[i - 2], 19) ^ (w_blocks_d[i - 2] >> 10));
 
 unsigned int LOP3LUT_XOR(unsigned int a, unsigned int b, unsigned int c) {
         #if DEV_NVIDIA_SM50 == 1
