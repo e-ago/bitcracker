@@ -14,7 +14,8 @@ unsigned int * w_block_precomputed(unsigned char * salt)
     int                 i; 
     FILE                *fp_kernel;       
 
-    const char fileNameWBlocks[] = "./kernel_wblocks.cl";
+    //Very very ugly...
+    const char fileNameWBlocks[] = "./OpenCL_version/kernel_wblocks.cl";
     size_t source_size_wbocks;     
     char *source_str_wbocks;
 

@@ -58,7 +58,8 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     int                 numReadPassword, numPassword, passwordBufferSize, ret, totPsw=0; 
     char                tmpIV[IV_SIZE];
     FILE                *fp_kernel, *fp_file_passwords;
-    char                fileNameAttack[] = "./kernel_attack.cl";
+    //Very very ugly...
+    char                fileNameAttack[] = "./OpenCL_version/kernel_attack.cl";
     size_t              source_size_attack, source_size;
     char                *source_str_attack;
     size_t len = 0;
@@ -131,15 +132,16 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         snprintf(optProgram, 128, "-I . -D DEV_NVIDIA_SM50=0 -D STRICT_CHECK=%d", strict_check);
 
     ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), optProgram, NULL, NULL);
-    CL_ERROR(ciErr1);
-
     ret_cl = clGetProgramBuildInfo(cpProgram, cdDevices[gpu_id], CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
     CL_ERROR(ret_cl);
     char *buffer = (char * )calloc(len+1, sizeof(char));
     ret_cl_log = clGetProgramBuildInfo(cpProgram, cdDevices[gpu_id], CL_PROGRAM_BUILD_LOG, len+1, (void *)buffer, NULL);
     CL_ERROR(ret_cl_log);
-    if(ret_cl != CL_SUCCESS)
-        printf("BUILD LOG: \n%s\n\n", buffer);
+    if(ret_cl == CL_SUCCESS && ciErr1 != CL_SUCCESS)
+    {
+        printf("Kernel Attack Build Log: \n%s\n\n", buffer);
+        CL_ERROR(ciErr1);
+    }
 
     // Create the kernel
     ckKernelAttack = clCreateKernel(cpProgram, "opencl_bitcracker_attack", &ciErr1);
