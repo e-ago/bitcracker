@@ -64,7 +64,7 @@ Options:
   -b, --blocks		Set the number of blocks
 ```
 
-N.B. In case of false positives, you can use the -s option (strict check empirically verified, it works with this repo images encrypted with Windows 7, 8.1 and 10). 
+Note: In case of false positives you can use the -s option, that is a more restrictive check on the correctness of the final result. Altough this check is empirically verified and it works with the images of this repo encrypted with Windows 7, 8.1 and 10, we can't guarantee that it doesn't lead to false negatives. Use -s option only if BitCracker returns several false positives.
 
 In the the run_test.sh script there are several attack examples using the encrypted images provided in this repo:
 * imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
