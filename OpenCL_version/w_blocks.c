@@ -23,17 +23,17 @@
 
 unsigned int * w_block_precomputed(unsigned char * salt)
 {
-
-	// OpenCL Vars
     cl_device_id		device_id;
-    cl_program          cpProgram;       // OpenCL program
-    cl_kernel           ckKernelWBlocks;        // OpenCL kernel
-    cl_mem              salt_d, padding_d, w_blocks_d;     // OpenCL device buffer
-    cl_int              ciErr1;          // Error code var
-    size_t szGlobalWorkSize;        // 1D var for Total # of work items
-    size_t szLocalWorkSize;         // 1D var for # of work items in the work group 
+    cl_program          cpProgram;  
+    cl_kernel           ckKernelWBlocks;   
+    cl_mem              salt_d, padding_d, w_blocks_d;
+    cl_int              ciErr1;     
+    size_t szGlobalWorkSize;   
+    size_t szLocalWorkSize;    
     int                 i; 
     FILE                *fp_kernel;       
+    time_t start,end;
+    double dif;
 
     //Very very ugly...
     const char fileNameWBlocks[] = "./OpenCL_version/kernel_wblocks.cl";
@@ -52,7 +52,6 @@ unsigned int * w_block_precomputed(unsigned char * salt)
 		return FALSE;
 
     //------- READ CL FILE ------            
-    /* Load kernel source file */       
     fp_kernel = fopen(fileNameWBlocks, "rb");     
     if (!fp_kernel) {      
         fprintf(stderr, "Failed to load kernel.\n");    
@@ -71,7 +70,6 @@ unsigned int * w_block_precomputed(unsigned char * salt)
 		padding[PADDING_SIZE-1-i] = (uint8_t)(msgLen >> (i * 8));
 
     // ------------------------------- Data setup -------------------------------
-    // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
     salt_d = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, SALT_SIZE * sizeof(char), NULL, &ciErr1);
     CL_ERROR(ciErr1);
     
@@ -84,11 +82,9 @@ unsigned int * w_block_precomputed(unsigned char * salt)
    	w_blocks_h = (unsigned int *) Calloc((SINGLE_BLOCK_SHA_SIZE*ITERATION_NUMBER), sizeof(int));
    	if(!w_blocks_h)
    		goto out;
-
     // --------------------------------------------------------------------------
 
     // ------------------------------- Kernel setup -------------------------------
-    /* Create kernel from source */     
     cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&source_str_wbocks, (const size_t *)&source_size_wbocks, &ciErr1);        
     CL_ERROR(ciErr1);
     ciErr1 = clBuildProgram(cpProgram, 1, &(cdDevices[gpu_id]), "-I .", NULL, NULL);
@@ -103,7 +99,6 @@ unsigned int * w_block_precomputed(unsigned char * salt)
         CL_ERROR(ciErr1);
     }
 
-    // Create the kernel
     ckKernelWBlocks = clCreateKernel(cpProgram, "opencl_bitcracker_wblocks", &ciErr1);
     CL_ERROR(ciErr1);
     // --------------------------------------------------------------------------
@@ -115,7 +110,6 @@ unsigned int * w_block_precomputed(unsigned char * salt)
     CL_ERROR(ciErr1);  
     // --------------------------------------------------------------------------
 
-    // Set the Argument values
     iter_num = ITERATION_NUMBER;
     ciErr1 = clSetKernelArg(ckKernelWBlocks, 0, sizeof(cl_int), (void*)&iter_num);
     CL_ERROR(ciErr1);
@@ -127,57 +121,39 @@ unsigned int * w_block_precomputed(unsigned char * salt)
     CL_ERROR(ciErr1);
     
     // ---------------------- Launch kernel
-
-    //printf("\n--- KERNEL INFO ---\n");
     size_t workgroup_size;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelWBlocks, cdDevices[gpu_id], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &workgroup_size, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_WORK_GROUP_SIZE: %zd\n", workgroup_size);
 
     cl_ulong localMemSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelWBlocks, cdDevices[gpu_id], CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_LOCAL_MEM_SIZE: %lld\n", localMemSize);
 
     size_t preferredWorkGroupSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelWBlocks, cdDevices[gpu_id], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &preferredWorkGroupSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: %zd\n", preferredWorkGroupSize);
 
     cl_ulong privateMemSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelWBlocks, cdDevices[gpu_id], CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &privateMemSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_PRIVATE_MEM_SIZE: %lld\n", privateMemSize);
-    //printf("--------------------------\n");
-
     // --------------------------------------------------------------------------
-
 
     //-------- Initialize input data --------  
     szLocalWorkSize = workgroup_size;
-    szGlobalWorkSize = 16*szLocalWorkSize;  //TOT THREADS 
-    //printf("Global Work Size: %zd, Local Work Size: %zd\n", szGlobalWorkSize, szLocalWorkSize);
-	
-    time_t start,end;
-    double dif;
+    szGlobalWorkSize = 16*szLocalWorkSize;
+
     time (&start);
     
 	ciErr1 = clEnqueueNDRangeKernel(cqCommandQueue, ckKernelWBlocks, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
 	CL_ERROR(ciErr1);
-
-    /* Copy result to host */       
     ciErr1 = clEnqueueReadBuffer(cqCommandQueue, w_blocks_d, CL_TRUE, 0, SINGLE_BLOCK_SHA_SIZE*ITERATION_NUMBER*sizeof(unsigned int), w_blocks_h, 0, NULL, NULL);
     CL_ERROR(ciErr1);
 
     time (&end);
     dif = difftime (end,start);
-    //printf ("W Blocks computed in %.2lf seconds\n\n", dif);
-
-
+    
     ret = clFlush(cqCommandQueue);       
     ret = clFinish(cqCommandQueue);
-
-//	fprintf(stdout, "%d W words in %f ms (%f sec) \n", (SINGLE_BLOCK_SHA_SIZE*ITERATION_NUMBER), timeElapsedW, (timeElapsedW/1000.0));
 
 out:
 

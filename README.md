@@ -11,7 +11,7 @@ BitCracker is a mono-GPU (OpenCL and CUDA) password cracking tool for memory uni
 
 ![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
 
-Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and non-compatible mode) and BitLocker To Go.
+Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and no-compatible mode) and BitLocker To Go.
 
 Requirements
 ===
@@ -74,8 +74,8 @@ In the the run_test.sh script there are several attack examples using the encryp
 * imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
 * imgWin8: memory unit encrypted with BitLocker using Windows 8 Enteprise edition OS
 * imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
-* imgWin10NonCompatible.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS, 
-* imgWin10NonCompatibleLong27.vhd: memory unit encrypted with BitLocker (NON compatible mode) using Windows 10 Enteprise edition OS with the longest possible password (27 characters)
+* imgWin10NotCompatible.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS, 
+* imgWin10NotCompatibleLong27.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS with the longest possible password (27 characters)
 
 Currently, BitCracker accepts passwords between 8 (minimum password length) and 27 characters (implementation reasons).
 

@@ -1,7 +1,7 @@
 /*
  * BitCracker: BitLocker password cracking tool, CUDA version.
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
- *                                                      Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
+ *                          Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
  * This file is part of BitCracker.
  * 

@@ -48,12 +48,12 @@ static int check_match() {
 char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks)
 {
     cl_device_id        device_id;
-    cl_program          cpProgram;       // OpenCL program
-    cl_kernel           ckKernelAttack;        // OpenCL kernel
-    cl_mem              deviceEncryptedVMK, deviceIV, devicePassword, deviceFound, w_blocks_d;     // OpenCL device buffer
-    cl_int              ciErr1, ciErr2, ccMajor;          // Error code var
-    size_t              szGlobalWorkSize;        // 1D var for Total # of work items
-    size_t              szLocalWorkSize;         // 1D var for # of work items in the work group 
+    cl_program          cpProgram;  
+    cl_kernel           ckKernelAttack;   
+    cl_mem              deviceEncryptedVMK, deviceIV, devicePassword, deviceFound, w_blocks_d;
+    cl_int              ciErr1, ciErr2, ccMajor;     
+    size_t              szGlobalWorkSize;   
+    size_t              szLocalWorkSize;    
 
     int                 numReadPassword, numPassword, passwordBufferSize, ret, totPsw=0; 
     char                tmpIV[IV_SIZE];
@@ -67,7 +67,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     char optProgram[128];
 
     //------- READ CL FILE ------            
-    /* Load kernel source file */       
     fp_kernel = fopen(fileNameAttack, "rb");     
     if (!fp_kernel) {      
         fprintf(stderr, "Failed to load kernel.\n");    
@@ -117,7 +116,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     // --------------------------------------------------------------------------
 
     // ------------------------------- Kernel setup -------------------------------
-    /* Create kernel from source */     
     cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&source_str_attack, NULL /* (const size_t *)&source_size_attack*/, &ciErr1);        
     CL_ERROR(ciErr1);
 
@@ -143,31 +141,24 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         CL_ERROR(ciErr1);
     }
 
-    // Create the kernel
     ckKernelAttack = clCreateKernel(cpProgram, "opencl_bitcracker_attack", &ciErr1);
     CL_ERROR(ciErr1);
 
-    //printf("\n--- KERNEL INFO ---\n");
     size_t workgroup_size;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelAttack, cdDevices[gpu_id], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &workgroup_size, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_WORK_GROUP_SIZE: %zd\n", workgroup_size);
 
     cl_ulong localMemSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelAttack, cdDevices[gpu_id], CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_LOCAL_MEM_SIZE: %lld\n", localMemSize);
 
     size_t preferredWorkGroupSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelAttack, cdDevices[gpu_id], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &preferredWorkGroupSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: %zd\n", preferredWorkGroupSize);
 
     cl_ulong privateMemSize;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelAttack, cdDevices[gpu_id], CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &privateMemSize, NULL);
     CL_ERROR(ret_info_kernel);
-    //printf("CL_KERNEL_PRIVATE_MEM_SIZE: %lld\n", privateMemSize);
-    //printf("--------------------------\n");
     // --------------------------------------------------------------------------
 
     //-------- Initialize input data --------  
@@ -181,9 +172,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     hostFound = (int *) calloc(1, sizeof(int));
     // --------------------------------------------------------------------------
 
-
     // ------------------------------- Data setup -------------------------------
-    // Allocate the OpenCL buffer memory objects for source and result on the device GMEM
     deviceEncryptedVMK = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, VMK_DECRYPT_SIZE*sizeof(unsigned char), NULL, &ciErr1);
     CL_ERROR(ciErr1);
     
@@ -197,7 +186,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     CL_ERROR(ciErr1);
     // --------------------------------------------------------------------------
 
-    // ------------------------------- Write static buffers -------------------------------
+    // ------------------------------- Write buffers -------------------------------
     unsigned int tmp_global = ((unsigned int *)(tmpIV))[0];
     unsigned int IV0=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
     
@@ -215,12 +204,12 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     
     ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, deviceEncryptedVMK, CL_TRUE, 0, VMK_DECRYPT_SIZE*sizeof(char), encryptedVMK+16, 0, NULL, NULL);      
     CL_ERROR(ciErr1);
-    // --------------------------------------------------------------------------
+    // ----------------------------------------------------------------------------
 
     szLocalWorkSize = GPU_MAX_WORKGROUP_SIZE;
     szGlobalWorkSize = gridBlocks*szLocalWorkSize;  //TOT THREADS 
 
-    printf("Starting OpenCL attack:\n\tLocal Work Size: %zd\n\tWork Group Number: %d\n\tGlobal Work Size: %zd\n\tPassword per thread: %d\n\tPassword per kernel: %d\n\tDictionary: %s\n\n", 
+    printf("Starting OpenCL attack:\n\tLocal Work Size: %d\n\tWork Group Number: %d\n\tGlobal Work Size: %zd\n\tPassword per thread: %d\n\tPassword per kernel: %d\n\tDictionary: %s\n\n", 
         szLocalWorkSize, gridBlocks, szGlobalWorkSize, psw_x_thread, numPassword, (fp_file_passwords == stdin)?"standard input":dname);
 
     int iter=0;
@@ -228,7 +217,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     {
         numReadPassword = readFilePassword(&hostPassword, numPassword, fp_file_passwords);
 
-        /* Copy input data to memory buffer */      
         ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, devicePassword, CL_TRUE, 0, passwordBufferSize * sizeof(char), hostPassword, 0, NULL, NULL);      
         CL_ERROR(ciErr1);
 
@@ -236,7 +224,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, deviceFound, CL_TRUE, 0, sizeof(int), hostFound, 0, NULL, NULL);      
         CL_ERROR(ciErr1);     
 
-        // Set the Argument values
         ciErr1 = clSetKernelArg(ckKernelAttack, 0, sizeof(cl_int), (void*)&numReadPassword);
         CL_ERROR(ciErr1);
 
@@ -288,10 +275,8 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
                 iter, numReadPassword, TIMER_ELAPSED(0)/1.0E+6, numReadPassword/(TIMER_ELAPSED(0)/1.0E+6));
   //      printf ("TIME timer: %d passwords in %.2lf seconds => %.2f pwd/s\n", numReadPassword, dif, (double)(numReadPassword/dif) );
 
-        
         ret = clFlush(cqCommandQueue);       
         ret = clFinish(cqCommandQueue);
-
 
         totPsw += numReadPassword;
         
@@ -308,23 +293,17 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     else
         printf("\n\n================================================\nOpenCL attack completed\nPasswords evaluated: %d\nPassword not found!\n================================================\n\n", totPsw);
 
-
 out1:
     printf("\nTot passwords evaluated: %d\n", totPsw);
 
-
-    /* Display result */        
+    /* Display result */
     if (fp_file_passwords != stdin)
-        fclose(fp_file_passwords);      
+        fclose(fp_file_passwords);
 
 out:
-
     /* Finalization */
-    
     if(ckKernelAttack)clReleaseKernel(ckKernelAttack); 
     if(cpProgram)clReleaseProgram(cpProgram);
-    
-   // if(deviceIV)clReleaseMemObject(deviceIV);
     if(w_blocks_d)clReleaseMemObject(w_blocks_d);
     if(devicePassword)clReleaseMemObject(devicePassword);
     if(deviceEncryptedVMK)clReleaseMemObject(deviceEncryptedVMK);
