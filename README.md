@@ -11,7 +11,7 @@ BitCracker is a mono-GPU (OpenCL and CUDA) password cracking tool for memory uni
 
 ![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
 
-Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and no-compatible mode) and BitLocker To Go.
+Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and not compatible mode) and BitLocker To Go.
 
 Requirements
 ===
@@ -19,56 +19,107 @@ Requirements
 Minimum requirements for CUDA implementation:
 - CUDA 7.5
 - NVIDIA GPU with CC 3.5 or later
-- NVIDIA GPU with Kepler architecture or later
+- NVIDIA GPU with Kepler arch or later
 
 Minimum memory requirement is 256 Mb; it may increase depending on the number of passwords processed by each kernel.
 
 How To
 ===
 
-Use the build.sh script to build 3 executables:
+Use the *build.sh* script to build 3 executables:
 
 - Hash extractor
 - BitCracker CUDA version
 - BitCracker OpenCL version
 
-The executables are stored in the build directory.
-<br>
-Before starting the attack, you need to run bitcracker_hash to extract the hash describing the encrypted memory unit. It also verifies if the input memory unit satisfies BitCracker's requirements.
+The script stores the executables in the *build* directory.
+
+Step 1: Extract the image
+==
+
+You need to extract the image of your memory device encrypted with BitLocker.
+For example, you can use the *dd* command:
 
 ```
-> ./build/bitcracker_hash -h
-
-Usage: ./build/bitcracker_hash -i <Encrypted memory unit> -o <output file>
-
-Options:
-
-  -h, --help		Show this help
-  -i, --image		Path of memory unit encrypted with BitLocker
-  -o, --outfile		Output file
+sudo dd if=/dev/disk2 of=/path/to/imageEncrypted conv=noerror,sync
+4030464+0 records in
+4030464+0 records out
+2063597568 bytes transferred in 292.749849 secs (7049013 bytes/sec)
 ```
 
-The extracted hash is fully compatible with the John The Ripper format (see next Section).<br>
 
-Then you can use the output hash file to run the BitCracker attack.
+Step 2: Extract the hash
+==
+
+Use *bitcracker_hash* to extract an hash describing your target image. It also verifies if the target memory unit satisfies BitCracker's requirements.
 
 ```
-> ./build/bitcracker_cuda -h
+./build/bitcracker_hash -o hashFile.txt -i path/to/imageEncrypted
 
-Usage: ./build/bitcracker_cuda -f <hash_file> -d <dictionary_file>
+Opening file path/to/imageEncrypted
 
-Options:
+Signature found at 0x00010003
+Version: 8 
+Invalid version, looking for a signature with valid version...
 
-  -h, --help		Show this help
-  -f, --hashfile 	Path to your input hash file (HashExtractor output)
-  -s, --strict		Strict check (use only in case of false positives)
-  -d, --dictionary	Path to dictionary or alphabet file
-  -g, --gpu 		GPU device number
-  -t, --passthread	Set the number of password per thread threads
-  -b, --blocks		Set the number of blocks
+Signature found at 0x02110000
+Version: 2 (Windows 7 or later)
+VMK entry found at 0x021100c2
+VMK encrypted with user password found!
+
+path/to/imageEncrypted result hash:
+$bitlocker$0$16$91a4ec232ab95bbb8e8ef964308c6b47$1048576$12$306af9dca50fd30103000000$60$00000000000000000000000000000000509aab04f2161082ed6153d6ea8ad51d45c1ae6ae77cdc470789472640f409a1c2ede715ea5a6bbc320e2312
 ```
 
-Note: In case of false positives you can use the -s option, that is a more restrictive check on the correctness of the final result. Altough this check is empirically verified and it works with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. Use -s option only if BitCracker returns several false positives.
+The resulting hash is printed inside the *hashFile.txt*.
+
+Step 3: Start the attack
+==
+
+Now you can start the BitCracker attack; use the *-h* to see all the options.
+
+```
+./build/bitcracker_cuda -f hashFile.txt -d dictionary.txt -t 1 -b 1 -g 0
+
+====================================
+Selected device: GPU Tesla K80 (ID: 0) properties
+====================================
+…………
+Hash file outFile.txt: $bitlocker$0$16$91a4ec232ab95bbb8e8ef964308c6b47$1048576$12$306af9dca50fd30103000000$60$00000000000000000000000000000000509aab04f2161082ed6153d6ea8ad51d45c1ae6ae77cdc470789472640f409a1c2ede715ea5a6bbc320e2312 ====================================
+Dictionary attack
+====================================
+
+Starting CUDA attack:
+  CUDA Threads: 1024
+  CUDA Blocks: 1
+  Psw per thread: 1
+  Max Psw per kernel: 1024
+  Dictionary: dictionary.txt
+
+CUDA Kernel execution:
+  Stream 0
+  Effective number psw: 7
+  Time: 28.583404 sec
+  Passwords x second: 0.24 pw/sec
+
+================================================
+CUDA attack completed
+Passwords evaluated: 7
+Password found: [donaldduck]
+================================================
+```
+
+Notes
+===
+
+In case of false positives you can use the -s option, that is a more restrictive check on the correctness of the final result. Altough this check is empirically verified and it works with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. Use -s option only if BitCracker returns several false positives.
+
+Currently, BitCracker accepts passwords between 8 (minimum password length) and 27 characters (implementation reasons).
+
+BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to provide your own input dictionary.
+
+Examples
+===
 
 In the the run_test.sh script there are several attack examples using the encrypted images provided in this repo:
 * imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
@@ -76,10 +127,6 @@ In the the run_test.sh script there are several attack examples using the encryp
 * imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
 * imgWin10NotCompatible.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS, 
 * imgWin10NotCompatibleLong27.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS with the longest possible password (27 characters)
-
-Currently, BitCracker accepts passwords between 8 (minimum password length) and 27 characters (implementation reasons).
-
-BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to provide your own input dictionary.
 
 Performance
 ===
@@ -116,8 +163,8 @@ Next Release
 ===
 
 In the next relese:
-- The maximum password lenght will be dynamic
-- Improve strict check with optional MAC verification to avoid any false positive
+- The maximum password length will be dynamic
+- Introduce the optional MAC verification (to avoid any false positive)
 
 References, credits and contacts
 ===
