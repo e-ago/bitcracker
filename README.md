@@ -1,10 +1,8 @@
-BitCracker
-========
+# BitCracker
 
 BitCracker is the first open source password cracking tool for memory units encrypted with BitLocker (using the password authentication method).
 
-Introduction
-===
+## Introduction
 
 BitLocker (formerly BitLocker Drive Encryption) is a full-disk encryption feature available in recent Windows versions (Ultimate and Enterprise editions of Windows Vista and Windows 7, the Pro and Enterprise editions of Windows 8, 8.1 and 10).
 BitCracker is a mono-GPU (OpenCL and CUDA) password cracking tool for memory units encrypted with the password authentication method of BitLocker (see picture below).
@@ -13,8 +11,7 @@ BitCracker is a mono-GPU (OpenCL and CUDA) password cracking tool for memory uni
 
 Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and not compatible mode) and BitLocker To Go.
 
-Requirements
-===
+## Requirements
 
 Minimum requirements for CUDA implementation:
 - CUDA 7.5
@@ -23,8 +20,7 @@ Minimum requirements for CUDA implementation:
 
 Minimum memory requirement is 256 Mb; it may increase depending on the number of passwords processed by each kernel.
 
-How To
-===
+## How To
 
 Use the *build.sh* script to build 3 executables:
 
@@ -34,8 +30,7 @@ Use the *build.sh* script to build 3 executables:
 
 The script stores the executables in the *build* directory.
 
-Step 1: Extract the image
-==
+### Step 1: Extract the image
 
 You need to extract the image of your memory device encrypted with BitLocker.
 For example, you can use the *dd* command:
@@ -48,8 +43,7 @@ sudo dd if=/dev/disk2 of=/path/to/imageEncrypted conv=noerror,sync
 ```
 
 
-Step 2: Extract the hash
-==
+### Step 2: Extract the hash
 
 Use *bitcracker_hash* to extract an hash describing your target image. It also verifies if the target memory unit satisfies BitCracker's requirements.
 
@@ -73,8 +67,7 @@ $bitlocker$0$16$91a4ec232ab95bbb8e8ef964308c6b47$1048576$12$306af9dca50fd3010300
 
 The resulting hash is printed inside the *hashFile.txt*.
 
-Step 3: Start the attack
-==
+### Step 3: Start the attack
 
 Now you can start the BitCracker attack; use the *-h* to see all the options.
 
@@ -109,8 +102,7 @@ Password found: [donaldduck]
 ================================================
 ```
 
-Notes
-===
+## Notes
 
 In case of false positives you can use the -s option, that is a more restrictive check on the correctness of the final result. Altough this check is empirically verified and it works with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. Use -s option only if BitCracker returns several false positives.
 
@@ -118,18 +110,16 @@ Currently, BitCracker accepts passwords between 8 (minimum password length) and 
 
 BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to provide your own input dictionary.
 
-Examples
-===
+## Examples
 
-In the the run_test.sh script there are several attack examples using the encrypted images provided in this repo:
-* imgWin7: memory unit encrypted with BitLocker using Windows 7 Enteprise edition OS
-* imgWin8: memory unit encrypted with BitLocker using Windows 8 Enteprise edition OS
-* imgWin10Compatible.vhd: memory unit encrypted with BitLocker (compatible mode) using Windows 10 Enteprise edition OS, 
+In the the run_test.sh script there are several attack examples using the images (of encrypted memory devices)provided in this repo:
+* imgWin7: BitLocker on Windows 7 Enteprise edition OS
+* imgWin8: BitLocker on Windows 8 Enteprise edition OS
+* imgWin10Compatible.vhd: BitLocker (compatible mode) on Windows 10 Enteprise edition OS, 
 * imgWin10NotCompatible.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS, 
 * imgWin10NotCompatibleLong27.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS with the longest possible password (27 characters)
 
-Performance
-===
+## Performance
 
 Here we report the best performance of BitCracker implementations tested on different GPUs.
 
@@ -152,22 +142,19 @@ Performance:
 | OpenCL   | AMDM   | 32  | 64 | 524.288            | 241           | 505 MH/s   |
 | OpenCL   | GFTX   | 8   | 24 | 196.608            | 884           | 1.853 MH/s |
 
-John The Ripper
-===
+## John The Ripper
 
-We released the OpenCL version as a plugin of John The Ripper (bleeding jumbo):
+We released the OpenCL version as a format of John The Ripper (bleeding jumbo):
 * Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker <br />
 * JtR source code: https://github.com/magnumripper/JohnTheRipper
 
-Next Release
-===
+## Next Release
 
 In the next relese:
 - The maximum password length will be dynamic
 - Introduce the optional MAC verification (to avoid any false positive)
 
-References, credits and contacts
-===
+## References, credits and contacts
 
 This is a research project in collaboration with the National Research Council of Italy released under GPLv2 license.<br />
 Copyright (C) 2013-2017  Elena Ago (elena dot ago at gmail dot com) and Massimo Bernaschi (massimo dot bernaschi at gmail dot com)<br />
