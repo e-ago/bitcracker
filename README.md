@@ -78,7 +78,7 @@ Now you can start the BitCracker attack; use the *-h* to see all the options.
 Selected device: GPU Tesla K80 (ID: 0) properties
 ====================================
 …………
-Hash file outFile.txt: $bitlocker$0$16$91a4ec232ab95bbb8e8ef964308c6b47$1048576$12$306af9dca50fd30103000000$60$00000000000000000000000000000000509aab04f2161082ed6153d6ea8ad51d45c1ae6ae77cdc470789472640f409a1c2ede715ea5a6bbc320e2312 ====================================
+Hash file hashFile.txt: $bitlocker$0$16$91a4ec232ab95bbb8e8ef964308c6b47$1048576$12$306af9dca50fd30103000000$60$00000000000000000000000000000000509aab04f2161082ed6153d6ea8ad51d45c1ae6ae77cdc470789472640f409a1c2ede715ea5a6bbc320e2312 ====================================
 Dictionary attack
 ====================================
 
