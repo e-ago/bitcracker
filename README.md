@@ -129,7 +129,7 @@ Here we report the best performance of BitCracker implementations tested on diff
 | GTK80        | Tesla K80       | Kepler  | 3.5 | 13   | 875    | 7.5  |
 | GFTX         | GeForce Titan X | Maxwell | 5.2 | 24   | 1001   | 7.5  |
 | GTP100       | Telsa P100      | Pascal  | 6.1 | 56   | 1328   | 8.0  |
-| AMDM         | Radedon Malta   | -       | -   | -    | -      | -    |
+| AMDM         | Radeon Malta    | -       | -   | -    | -      | -    |
 
 Performance:
 
@@ -152,7 +152,7 @@ We released the OpenCL version as a format of John The Ripper (bleeding jumbo):
 
 In the next relese:
 - The maximum password length will be dynamic
-- Introduce the optional MAC verification (to avoid any false positive)
+- Optional MAC verification (to avoid any false positive)
 
 ## References, credits and contacts
 
