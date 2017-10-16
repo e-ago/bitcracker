@@ -116,8 +116,8 @@ In the the run_test.sh script there are several attack examples using the images
 * imgWin7: BitLocker on Windows 7 Enteprise edition OS
 * imgWin8: BitLocker on Windows 8 Enteprise edition OS
 * imgWin10Compatible.vhd: BitLocker (compatible mode) on Windows 10 Enteprise edition OS, 
-* imgWin10NotCompatible.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS, 
-* imgWin10NotCompatibleLong27.vhd: memory unit encrypted with BitLocker (not compatible mode) using Windows 10 Enteprise edition OS with the longest possible password (27 characters)
+* imgWin10NotCompatible.vhd: BitLocker (not compatible mode) on Windows 10 Enteprise edition OS, 
+* imgWin10NotCompatibleLong27.vhd: BitLocker (not compatible mode) on Windows 10 Enteprise edition OS with the longest possible password (27 characters)
 
 ## Performance
 
