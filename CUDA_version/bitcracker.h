@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "sha256_header.h"
 #include "aes_header.h"
 
@@ -106,3 +108,4 @@ void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numP
 
 void * Calloc(size_t len, size_t size);
 void print_hex(unsigned char hash[], int size);
+
