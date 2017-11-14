@@ -141,10 +141,7 @@ char *cuda_attack(
 	
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &d_vmkIV, IV_SIZE*sizeof(uint8_t)) );
 	BITCRACKER_CUDA_CHECK( cudaMemcpy(d_vmkIV, vmkIV, IV_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
-	printf("\nVMK IV: ");
-	print_hex(vmkIV, IV_SIZE);
-	printf("\n");
-		
+
 	if(mac_comparison == 1)
 	{
 		BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &d_mac, MAC_SIZE*sizeof(uint8_t)) );
@@ -155,16 +152,6 @@ char *cuda_attack(
 	
 		BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &d_computeMacIV, IV_SIZE*sizeof(uint8_t)) );
 		BITCRACKER_CUDA_CHECK( cudaMemcpy(d_computeMacIV, computeMacIV, IV_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
-
-		printf("VMK Body: ");
-		print_hex((encryptedVMK), VMK_FULL_SIZE);
-		printf("\nMAC Encrypted: ");
-		print_hex(encryptedMAC, MAC_SIZE);
-		printf("\nMAC IV: ");
-		print_hex(macIV, IV_SIZE);
-		printf("\nCompute MAC IV: ");
-		print_hex(computeMacIV, IV_SIZE);
-		printf("\n\n");
 	}
 
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &devicePassword[0], (size_psw * sizeof(uint8_t)) ) );

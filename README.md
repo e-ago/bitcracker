@@ -102,9 +102,17 @@ Password found: [donaldduck]
 ================================================
 ```
 
-## Notes
+## False Positives
 
-In case of false positives you can use the -s option, that is a more restrictive check on the correctness of the final result. Altough this check is empirically verified and it works with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. Use -s option only if BitCracker returns several false positives.
+In case of false positives you can use the following options:
+
+- option '-s' (faster): more restrictive check on the correctness of the final result. Empirically verified with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. 
+
+- option '-m' (slower, CUDA version only): MAC verification
+
+For performance reasons, use those options only if BitCracker returns several false positives.
+
+## Notes
 
 Currently, BitCracker accepts passwords between 8 (minimum password length) and 27 characters (implementation reasons).
 
@@ -151,8 +159,9 @@ We released the OpenCL version as a format of John The Ripper (bleeding jumbo):
 ## Next Release
 
 In the next relese:
+- New attack mode to the recovery key
 - The maximum password length will be dynamic
-- Optional MAC verification (to avoid any false positive)
+
 
 ## References, credits and contacts
 

@@ -54,21 +54,21 @@ void usage(char *name)
 {
 	printf("\nUsage: %s -f <hash_file> -d <dictionary_file>\n\n"
 		"Options:\n\n"
-		"  -h, --help"
+		"  -h"
 		"\t\t\tShow this help\n"
-		"  -f, --hashfile"
+		"  -f"
 		"\t\tPath to your input hash file (HashExtractor output)\n"
-		"  -d, --dictionary"
+		"  -d"
 		"\t\tPath to dictionary or alphabet file\n"
-		"  -s, --strict"
-		"\t\tStrict check (use only in case of false positives)\n"
-		"  -p, --platform"
+		"  -s"
+		"\t\tStrict check (use only in case of false positives, faster solution)\n"
+		"  -p"
 		"\t\tPlatform\n"
-		"  -g, --gpu"
+		"  -g"
 		"\t\tGPU device number\n"
-		"  -t, --passthread"
+		"  -t"
 		"\t\tSet the number of password per thread threads\n"
-		"  -b, --blocks"
+		"  -b"
 		"\t\tSet the number of blocks\n\n", name);
 }
 
@@ -302,8 +302,8 @@ int main (int argc, char **argv)
 	long int totGlobalMem;
 	
 	//int threads = 0;
-	int gridBlocks = 4, ret;
-	int opt, option_index = 0;
+	int gridBlocks = 4, ret=0, opt=0;
+	
 	gpu_id=0;
 	platform_id=0;
 
@@ -317,20 +317,7 @@ int main (int argc, char **argv)
 
 	//*********************** Options ************************
 	while (1) {
-		static struct option long_options[] =
-			{
-				{"help", no_argument, 0, 'h'},
-				{"hashfile", required_argument, 0, 'f'},
-				{"dictionary", required_argument, 0, 'd'},
-				{"passthread", required_argument, 0, 't'},
-				{"blocks", required_argument, 0, 'b'},
-				{"gpu", required_argument, 0, 'g'},
-				{"strict", optional_argument, 0, 's'},
-				{"platform", required_argument, 0, 'p'},
-				{0, 0, 0, 0}
-			};
-
-		opt = getopt_long (argc, argv, "hf:d:t:b:p:g:s", long_options, &option_index);
+		opt = getopt(argc, argv, "hf:d:t:b:p:g:s");
 		if (opt == -1)
 			break;
 		switch (opt) {
