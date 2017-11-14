@@ -3,7 +3,7 @@
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *							Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
- * This file is part of BitCracker.
+ * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
  * 
  * BitCracker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ int tot_psw=0;
 size_t size_psw=0;
 size_t tot_word_mem=(SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t));
 int strict_check=0;
+int mac_comparison=0;
+unsigned char * salt;
 
 void usage(char *name){
 	printf("\nUsage: %s -f <hash_file> -d <dictionary_file>\n\n"
@@ -67,8 +69,8 @@ int getGPUStats()
 	printf("Clock rate: %d\n", prop.clockRate );
 	printf("Clock rate: %.0f MHz (%.02f GHz)\n", prop.clockRate * 1e-3f, prop.clockRate * 1e-6f);
 	printf("Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
-    printf("Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
-    printf("Peak Memory Bandwidth (GB/s): %f\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+	printf("Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+	printf("Peak Memory Bandwidth (GB/s): %f\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
 	printf("Device copy overlap: " );
 	if (prop.deviceOverlap) printf("Enabled\n" ); else printf("Disabled\n" );
 	printf("Async memory engine count: %d\n",  prop.asyncEngineCount);
@@ -101,7 +103,7 @@ int getGPUStats()
 int main (int argc, char **argv)
 {
 	char * input_dictionary=NULL, * input_hash=NULL;
-	unsigned char *salt, *nonce, *vmk;
+	unsigned char *nonce, *vmk, *mac;
 	uint32_t * w_blocks_d;
 	
 	int gridBlocks = 1;
@@ -129,22 +131,12 @@ int main (int argc, char **argv)
 				{0, 0, 0, 0}
 			};
 
-		opt = getopt_long(argc, argv, "hf:d:t:b:g:s", long_options, &option_index);
+		opt = getopt_long(argc, argv, "b:d:f:g:mhst:", long_options, &option_index);
 		if (opt == -1)
 			break;
 		switch (opt) {
-			case 'h':
-				usage(argv[0]);
-				exit(EXIT_FAILURE);
-				break;
-			case 'f':
-				if(strlen(optarg) >= INPUT_SIZE)
-				{
-					fprintf(stderr, "ERROR: Inut hash file path is bigger than %d\n", INPUT_SIZE);
-					exit(EXIT_FAILURE);
-				}
-				input_hash=(char *)Calloc(INPUT_SIZE, sizeof(char));
-				strncpy(input_hash, optarg, strlen(optarg)+1);
+			case 'b':
+				gridBlocks = atoi(optarg);
 				break;
 			case 'd':
 				if(strlen(optarg) >= INPUT_SIZE)
@@ -155,6 +147,28 @@ int main (int argc, char **argv)
 				input_dictionary=(char *)Calloc(INPUT_SIZE, sizeof(char));
 				strncpy(input_dictionary,optarg, strlen(optarg)+1);
 				break;
+			case 'f':
+				if(strlen(optarg) >= INPUT_SIZE)
+				{
+					fprintf(stderr, "ERROR: Inut hash file path is bigger than %d\n", INPUT_SIZE);
+					exit(EXIT_FAILURE);
+				}
+				input_hash=(char *)Calloc(INPUT_SIZE, sizeof(char));
+				strncpy(input_hash, optarg, strlen(optarg)+1);
+				break;
+			case 'g':
+				gpu_id = atoi(optarg);
+				break;
+			case 'h':
+				usage(argv[0]);
+				exit(EXIT_FAILURE);
+				break;
+			case 'm':
+				mac_comparison = 1;
+				break;
+			case 's':
+				strict_check = 1;
+				break;
 			case 't':
 				psw_x_thread = atoi(optarg);
 				if(psw_x_thread <= 0)
@@ -162,15 +176,6 @@ int main (int argc, char **argv)
 					fprintf(stderr, "ERROR: wrong password x thread number\n");
 					exit(EXIT_FAILURE);
 				}
-				break;
-			case 'b':
-				gridBlocks = atoi(optarg);
-				break;
-			case 'g':
-				gpu_id = atoi(optarg);
-				break;
-			case 's':
-				strict_check = 1;
 				break;
 			default:
 				exit(EXIT_FAILURE);
@@ -198,7 +203,7 @@ int main (int argc, char **argv)
 	}
 	//***********************************************************
 
-	tot_psw=(ATTACK_DEFAULT_THREADS*gridBlocks*psw_x_thread);
+	tot_psw=(CUDA_THREADS_NO_MAC*gridBlocks*psw_x_thread);
 	size_psw = tot_psw * FIXED_PASSWORD_BUFFER * sizeof(uint8_t);
 	//****************** GPU device *******************
 	if(getGPUStats())
@@ -211,10 +216,20 @@ int main (int argc, char **argv)
 	//****************** Data from target file *******************
 	printf("\n====================================\nExtracting data from disk image\n====================================\n\n");
 
-	if(parse_data(input_hash, &salt, &nonce, &vmk) == BIT_FAILURE)
+	if(parse_data(input_hash, &salt, &nonce, &vmk, &mac) == BIT_FAILURE)
 	{
 		fprintf(stderr, "Input hash format error... exit!\n");
 		goto cleanup;
+	}
+	if(mac_comparison == 1 && mac == NULL)
+	{
+		fprintf(stderr, "MAC comparison option selected but no MAC string found in input hash. MAC comparison not used!\n");
+		mac_comparison=0;
+	}
+	else if(mac_comparison == 1)
+	{
+		tot_psw=(CUDA_THREADS_WITH_MAC*gridBlocks*psw_x_thread);
+		size_psw = tot_psw * FIXED_PASSWORD_BUFFER * sizeof(uint8_t);
 	}
 	//************************************************************
 
@@ -229,7 +244,7 @@ int main (int argc, char **argv)
 	//**********************************************
 
 	//************* Dictionary Attack *************
-	cuda_attack(input_dictionary, w_blocks_d, vmk, nonce, gridBlocks);
+	cuda_attack(input_dictionary, w_blocks_d, vmk, nonce, mac, gridBlocks);
 	//*********************************************
 
 cleanup:

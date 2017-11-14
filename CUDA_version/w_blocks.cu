@@ -3,7 +3,7 @@
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *							Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
- * This file is part of BitCracker.
+ * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
  * 
  * BitCracker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 
 __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIteration, unsigned char padding[40], uint32_t * w_blocks_d) { // unsigned char block[64]
 	
-	uint64_t loop = (threadIdx.x+blockIdx.x*blockDim.x) + (threadIdx.y+blockIdx.y*blockDim.y) * blockDim.x * gridDim.x;
+	uint64_t loop = (threadIdx.x+blockIdx.x*blockDim.x);
 	unsigned char block[SINGLE_BLOCK_W_SIZE];
 	
 	int i, j;
@@ -34,10 +34,9 @@ __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIterat
 	i+=8;
 	
 	for(j=0; j<40; i++, j++)
+	{
 		block[i] = padding[j];
-	
-	//memcpy(block, salt, SALT_SIZE);
-	//memcpy(block+SALT_SIZE+8, padding, 40);
+	}
 	
 	while(loop < ITERATION_NUMBER)
 	{
@@ -66,6 +65,7 @@ __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIterat
 		LOADSCHEDULE_WPRE(13, (SINGLE_BLOCK_W_SIZE*loop)+13)
 		LOADSCHEDULE_WPRE(14, (SINGLE_BLOCK_W_SIZE*loop)+14)
 		LOADSCHEDULE_WPRE(15, (SINGLE_BLOCK_W_SIZE*loop)+15)
+
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+16)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+17)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+18)
@@ -114,8 +114,8 @@ __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIterat
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+61)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+62)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+63)
-
-		loop = loop + (blockDim.x * gridDim.x * blockDim.y * gridDim.y);
+		
+		loop += (blockDim.x * gridDim.x);
 	}
 }
 

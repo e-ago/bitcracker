@@ -3,4 +3,4 @@ bitcracker_cuda:
 
 clean:
 	rm -rf *.o
-	rm -rf bitcracker_cuda
+	rm -rf ../build/bitcracker_cuda

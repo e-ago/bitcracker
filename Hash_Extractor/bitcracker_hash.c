@@ -70,12 +70,12 @@ void * Calloc(size_t len, size_t size) {
 
 
 static int usage(char *name){
-	printf("\nUsage: %s -i <Encrypted memory unit> -o <output file>\n\n"
+	printf("\nUsage: %s -i <Image of encrypted memory unit> -o <output file>\n\n"
 		"Options:\n\n"
 		"  -h, --help"
 		"\t\tShow this help\n"
 		"  -i, --image"
-		"\t\tPath of memory unit encrypted with BitLocker\n"
+		"\t\tImage path of encrypted memory unit encrypted with BitLocker\n"
 		"  -o, --outfile"
 		"\t\tOutput file\n\n", name);
 
@@ -168,7 +168,38 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 			else if ((c == key_protection_start_key[0]) && (d == key_protection_start_key[1])) 
 				fprintf(stderr, "VMK encrypted with Startup Key...not supported!\n");
 			else if ((c == key_protection_recovery[0]) && (d == key_protection_recovery[1])) 
-				fprintf(stderr, "VMK encrypted with Recovery key...not supported!\n");
+			{
+				fprintf(stderr, "VMK encrypted with Recovery key found!\n");
+				#if 0
+				fseek(encryptedImage, 12, SEEK_CUR);
+				fillBuffer(encryptedImage, salt, SALT_SIZE);
+				fseek(encryptedImage, 83, SEEK_CUR);
+				char a=(unsigned char)fgetc(encryptedImage);
+				char b=(unsigned char)fgetc(encryptedImage);
+				if (( a != value_type[0]) || (b != value_type[1])) {
+					fprintf(stderr, "Error: VMK not encrypted with AES-CCM, a: %02x, b: %02x\n",a ,b);
+					match=0;
+					i=0;
+					continue;
+				}
+				else fprintf(stderr, "VMK encrypted with AES-CCM\n");
+
+
+				fseek(encryptedImage, 3, SEEK_CUR);
+				fillBuffer(encryptedImage, nonce, NONCE_SIZE);
+				fillBuffer(encryptedImage, mac, MAC_SIZE);
+				fillBuffer(encryptedImage, vmk, VMK_SIZE);
+				printf("Recovery key infos:\n");
+				printf("Salt:\n");
+				print_hex(salt, SALT_SIZE, stdout);
+				printf("\nNonce:\n");
+				print_hex(nonce, NONCE_SIZE, stdout);
+				printf("\nMac:\n");
+				print_hex(mac, MAC_SIZE, stdout); // hack, this should actually be entire AES-CCM encrypted block (which includes vmk)
+				printf("\nVMK:\n");
+				print_hex(vmk, VMK_SIZE, stdout);
+				#endif
+			}
 			else if ((c == key_protection_password[0]) && (d == key_protection_password[1])) 
 			{
 				fprintf(stderr, "VMK encrypted with user password found!\n");
@@ -181,11 +212,22 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 					i=0;
 					continue;
 				}
+				else fprintf(stderr, "VMK encrypted with AES-CCM\n");
 
 				fseek(encryptedImage, 3, SEEK_CUR);
 				fillBuffer(encryptedImage, nonce, NONCE_SIZE);
 				fillBuffer(encryptedImage, mac, MAC_SIZE);
 				fillBuffer(encryptedImage, vmk, VMK_SIZE);
+				printf("VMK infos:\n");
+				printf("Salt:\n");
+				print_hex(salt, SALT_SIZE, stdout);
+				printf("\nNonce:\n");
+				print_hex(nonce, NONCE_SIZE, stdout);
+				printf("\nMac:\n");
+				print_hex(mac, MAC_SIZE, stdout); // hack, this should actually be entire AES-CCM encrypted block (which includes vmk)
+				printf("\nVMK:\n");
+				print_hex(vmk, VMK_SIZE, stdout);
+
 				break;
 			}
 		}
@@ -203,11 +245,10 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 		print_hex(salt, SALT_SIZE, stdout);
 		printf("$%d$%d$", 0x100000, NONCE_SIZE); // fixed iterations , fixed nonce size
 		print_hex(nonce, NONCE_SIZE, stdout);
-		printf("$%d$", VMK_SIZE + 16);
-		print_hex(padding, 16, stdout); // hack, this should actually be entire AES-CCM encrypted block (which includes vmk)
+		printf("$%d$", VMK_SIZE + MAC_SIZE);
+		print_hex(mac, MAC_SIZE, stdout); // hack, this should actually be entire AES-CCM encrypted block (which includes vmk)
 		print_hex(vmk, VMK_SIZE, stdout);
-		printf("\n");
-		
+
 		outFile = fopen(outputFile, "w");
 		if (!outFile) {
 			fprintf(stderr, "! %s : %s\n", outputFile, strerror(errno));
@@ -218,8 +259,9 @@ int parse_image(char * encryptedImagePath, char * outputFile)
 		print_hex(salt, SALT_SIZE, outFile);
 		fprintf(outFile, "$%d$%d$", 0x100000, NONCE_SIZE); // fixed iterations , fixed nonce size
 		print_hex(nonce, NONCE_SIZE, outFile);
-		fprintf(outFile, "$%d$", VMK_SIZE + 16);
-		print_hex(padding, 16, outFile); // hack, this should actually be entire AES-CCM encrypted block (which includes vmk)
+
+		fprintf(outFile, "$%d$", VMK_SIZE + MAC_SIZE);
+		print_hex(mac, MAC_SIZE, outFile); 
 		print_hex(vmk, VMK_SIZE, outFile);
 		fprintf(outFile, "\n");
 

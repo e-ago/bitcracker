@@ -3,7 +3,7 @@
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *							Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
- * This file is part of BitCracker.
+ * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
  * 
  * BitCracker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -73,18 +73,21 @@ void print_hex(unsigned char *str, int len)
 		printf("%02x", str[i]);
 }
 
-int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk)
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk, unsigned char ** mac)
 {
 	char * hash;
 	char *p;
-	int i, salt_len, iterations, vmk_size, nonce_len;
+	int i, salt_size, iterations, vmk_size, nonce_size;
 	FILE * fphash;
 	char tmp[2];
 	int j=0;
+	const char zero_string[17]="0000000000000000";
 
 	(*salt) = (unsigned char *) Calloc(SALT_SIZE, sizeof(unsigned char));
 	(*nonce) = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
 	(*vmk) = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
+	(*mac) = (unsigned char *) Calloc(MAC_SIZE, sizeof(unsigned char));
+
 	hash = (char *) Calloc(INPUT_HASH_SIZE, sizeof(char));
 
 	if(!input_hash)
@@ -119,15 +122,15 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	p = strtokm(hash, "$"); // version
 	p = strtokm(NULL, "$"); // salt length
 
-	salt_len = atoi(p);
-	if(salt_len != SALT_SIZE)
+	salt_size = atoi(p);
+	if(salt_size != SALT_SIZE)
 	{
 		fprintf(stderr, "Wrong Salt size\n");
 		goto out;
 	}
 
 	p = strtokm(NULL, "$"); // salt
-	for (i = 0, j = 0; i < salt_len*2; i+=2, j++)
+	for (i = 0, j = 0; i < salt_size*2; i+=2, j++)
 	{
 		tmp[0] = p[i];
 		tmp[1] = p[i+1];
@@ -138,15 +141,15 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	p = strtokm(NULL, "$"); // iterations
 	iterations = atoi(p);
 	p = strtokm(NULL, "$"); // nonce length
-	nonce_len = atoi(p);
-	if(nonce_len != NONCE_SIZE)
+	nonce_size = atoi(p);
+	if(nonce_size != NONCE_SIZE)
 	{
 		fprintf(stderr, "Wrong Nonce size\n");
 		goto out;
 	}
 
 	p = strtokm(NULL, "$"); // nonce
-	for (i = 0, j = 0; i < NONCE_SIZE*2; i+=2, j++)
+	for (i = 0, j = 0; i < nonce_size*2; i+=2, j++)
 	{
 		tmp[0] = p[i];
 		tmp[1] = p[i+1];
@@ -164,20 +167,35 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	}
 	
 	p = strtokm(NULL, "$"); // data
-	for (i = 0, j = 0; i < vmk_size*2; i+=2, j++)
+	for (i = 0, j = 0; i < MAC_SIZE*2; i+=2, j++)
+	{
+		tmp[0] = p[i];
+		tmp[1] = p[i+1];
+		long int ret = strtol(tmp, NULL, 16);
+		(*mac)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
+	}
+
+	if(mac_comparison == 1 && !memcmp((*mac), zero_string, MAC_SIZE))
+	{
+		free(*mac);
+		(*mac)=NULL;
+	}
+
+	for (j=0; i < vmk_size*2; i+=2, j++)
 	{
 		tmp[0] = p[i];
 		tmp[1] = p[i+1];
 		long int ret = strtol(tmp, NULL, 16);
 		(*vmk)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
 	}
-	
+
 	return BIT_SUCCESS;
 
 	out:
 		free(*salt);
 		free(*nonce);
 		free(*vmk);
+		free(*mac);
 
 		return BIT_FAILURE;
 }

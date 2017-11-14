@@ -3,7 +3,7 @@
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *							Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
- * This file is part of BitCracker.
+ * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
  * 
  * BitCracker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -3,7 +3,7 @@
  * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
  *							Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
  * 
- * This file is part of BitCracker.
+ * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
  * 
  * BitCracker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 #include "sha256_header.h"
 #include "aes_header.h"
 
@@ -40,13 +41,16 @@
 #define NONCE_SIZE 12
 #define IV_SIZE 16
 #define VMK_SIZE 60
-#define VMK_DECRYPT_SIZE 16
+#define VMK_HEADER_SIZE 12
+#define VMK_BODY_SIZE 32
+#define VMK_FULL_SIZE 44
+
 #define DICT_BUFSIZE	(50*1024*1024)
 #define MAX_PLEN 32
 
 #define HASH_TAG              "$bitlocker$"
 #define HASH_TAG_LEN          (sizeof(HASH_TAG) - 1)
-#define INPUT_HASH_SIZE			210
+#define INPUT_HASH_SIZE			245
 #ifndef UINT32_C
 #define UINT32_C(c) c ## UL
 #endif
@@ -66,7 +70,8 @@
 #define BLOCK_UNIT 32
 #define HASH_SIZE_STRING 32
 
-#define ATTACK_DEFAULT_THREADS 1024
+#define CUDA_THREADS_NO_MAC 1024
+#define CUDA_THREADS_WITH_MAC 256
 
 #define BIT_SUCCESS 0
 #define BIT_FAILURE 1
@@ -91,17 +96,35 @@ extern int psw_x_thread;
 extern int tot_psw;
 extern size_t size_psw;
 extern int strict_check;
+extern int mac_comparison;
+extern unsigned char * salt;
 
 /* ++++++++++++++++++++++++++++++++++++++ DEVICE FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIteration, unsigned char padding[PADDING_SIZE], uint32_t * w_blocks);
-__global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int numPassword, int *found, unsigned char * vmkKey, unsigned char * IV, int check);
-
+__global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, 
+							unsigned char * IV, int strict_check,
+							int v0, int v1, int v2, int v3,
+							uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3);
+__global__ __launch_bounds__(1024,1) void decrypt_vmk_with_mac(
+					int numStream, int tot_psw_kernel, int *found, 
+					unsigned char * vmkKey, unsigned char * vmkIV,
+					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
+					int v0, int v1, int v2, int v3,
+					uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3
+				);
+__global__ void decrypt_vmk_noimprovements(
+					int numStream, int tot_psw_kernel, int *found, 
+					unsigned char * vmkKey, unsigned char * vmkIV,
+					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
+					int v0, int v1, int v2, int v3,
+					uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3
+);
 /* ++++++++++++++++++++++++++++++++++++++ HOST FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 int w_block_precomputed(unsigned char * salt, uint32_t * w_blocks_d);
 int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
-int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk);
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk, unsigned char ** mac);
 char *strtokm(char *s1, const char *delims);
-char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks);
+char *cuda_attack(char *dname, uint32_t * w_blocks_d, unsigned char * encryptedVMK, unsigned char * nonce, unsigned char * encryptedMAC, int gridBlocks);
 void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numPassword);
 
 void * Calloc(size_t len, size_t size);
