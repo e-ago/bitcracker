@@ -31,6 +31,9 @@ printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
 
 ./build/bitcracker_cuda -f ./test_hash/imgWin8.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
 
+#Same as previous test, with MAC verification
+./build/bitcracker_cuda -f ./test_hash/imgWin8.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0 -m
+
 ./build/bitcracker_cuda -f ./test_hash/imgWin7.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
 
 ./build/bitcracker_cuda -f ./test_hash/imgWin10Compatible.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
