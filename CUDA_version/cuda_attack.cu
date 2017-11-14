@@ -182,8 +182,8 @@ char *cuda_attack(
 
 	BITCRACKER_CUDA_CHECK (cudaDeviceSetCacheConfig( cudaFuncCachePreferL1 ) );
 
-	printf("Starting CUDA attack:\n\tCUDA Threads: %d\n\tCUDA Blocks: %d\n\tPsw per thread: %d\n\tMax Psw per kernel: %d\n\tDictionary: %s\n\tStrict Check (-s): %d\n\tMAC Comparison (-m): %d\n\t\n\n", 
-		cudaThreads, gridBlocks, psw_x_thread, tot_psw, (fp == stdin)?"standard input":dname, (strict_check == 1)?1:0, (mac_comparison == 1)?1:0);
+	printf("Starting CUDA attack:\n\tCUDA Threads: %d\n\tCUDA Blocks: %d\n\tPsw per thread: %d\n\tMax Psw per kernel: %d\n\tDictionary: %s\n\tStrict Check (-s): %s\n\tMAC Comparison (-m): %s\n\t\n\n", 
+		cudaThreads, gridBlocks, psw_x_thread, tot_psw, (fp == stdin)?"standard input":dname, (strict_check == 1)?"Yes":"No", (mac_comparison == 1)?"Yes":"No");
 
 	uint32_t s0 =  ((uint32_t)salt[0] ) << 24 | ((uint32_t)salt[1] ) << 16 | ((uint32_t)salt[2] ) <<  8 | ((uint32_t)salt[3]); 
 	uint32_t s1 =  ((uint32_t)salt[4] ) << 24 | ((uint32_t)salt[5] ) << 16 | ((uint32_t)salt[6] ) <<  8 | ((uint32_t)salt[7]); 
@@ -203,7 +203,7 @@ char *cuda_attack(
 		BITCRACKER_CUDA_CHECK( cudaEventRecord(start[indexStream], stream[indexStream]) );
 		if(mac_comparison == 1)
 		{
-			printf("launch attack with mac\n");
+			//Slower attack with MAC verification
 			decrypt_vmk_with_mac<<<gridBlocks, CUDA_THREADS_WITH_MAC, 0, stream[indexStream]>>>(indexStream, 
 				numReadPassword[indexStream], deviceFound[indexStream], d_vmk, d_vmkIV, d_mac, d_macIV, d_computeMacIV,
 				w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
@@ -211,7 +211,7 @@ char *cuda_attack(
 		}
 		else
 		{
-			printf("launch attack normal\n");
+			//Faster attack
 			decrypt_vmk<<<gridBlocks, CUDA_THREADS_NO_MAC, 0, stream[indexStream]>>>(indexStream, 
 				numReadPassword[indexStream], deviceFound[indexStream], d_vmk, d_vmkIV, strict_check, 
 				w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
