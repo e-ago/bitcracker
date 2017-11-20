@@ -1,6 +1,7 @@
 # BitCracker
 
 BitCracker is the first open source password cracking tool for memory units encrypted with BitLocker (using the password authentication method).
+In the near future, BitCracker will be able to attack the Recovery Key method.
 
 ## Introduction
 
@@ -10,6 +11,12 @@ BitCracker is a mono-GPU (OpenCL and CUDA) password cracking tool for memory uni
 ![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
 
 Our attack has been tested on several memory units encrypted with BitLocker running on Windows 7, Window 8.1,  Windows 10 (compatible and not compatible mode) and BitLocker To Go.
+
+## To Do List
+
+- New attack mode on the Recovery Key authentication method
+- Build Recovery Keys dictionary 
+- Increase maximum password length
 
 ## Requirements
 
@@ -108,7 +115,7 @@ In case of false positives you can use the following options:
 
 - option '-s' (faster): more restrictive check on the correctness of the final result. Empirically verified with all the encrypted images in this repo, we can't guarantee that it doesn't lead to false negatives. 
 
-- option '-m' (slower, CUDA version only): MAC verification
+- option '-m' (slower): MAC verification
 
 For performance reasons, use those options only if BitCracker returns several false positives.
 
@@ -116,7 +123,7 @@ For performance reasons, use those options only if BitCracker returns several fa
 
 Currently, BitCracker accepts passwords between 8 (minimum password length) and 27 characters (implementation reasons).
 
-BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to provide your own input dictionary.
+BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to create your own input dictionary.
 
 ## Examples
 
@@ -150,18 +157,12 @@ Performance:
 | OpenCL   | AMDM   | 32  | 64 | 524.288            | 241           | 505 MH/s   |
 | OpenCL   | GFTX   | 8   | 24 | 196.608            | 884           | 1.853 MH/s |
 
+
 ## John The Ripper
 
 We released the OpenCL version as a format of John The Ripper (bleeding jumbo):
 * Wiki page: http://openwall.info/wiki/john/OpenCL-BitLocker <br />
 * JtR source code: https://github.com/magnumripper/JohnTheRipper
-
-## Next Release
-
-In the next relese:
-- New attack mode to the recovery key
-- The maximum password length will be dynamic
-
 
 ## References, credits and contacts
 
