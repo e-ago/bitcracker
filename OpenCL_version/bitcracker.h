@@ -58,8 +58,12 @@
 #define MAC_SIZE 16
 #define NONCE_SIZE 12
 #define IV_SIZE 16
+
 #define VMK_SIZE 60
-#define VMK_DECRYPT_SIZE 16
+#define VMK_HEADER_SIZE 12
+#define VMK_BODY_SIZE 32
+#define VMK_FULL_SIZE 44
+
 #define DICT_BUFSIZE    (50*1024*1024)
 #define MAX_PLEN 32
 
@@ -187,6 +191,7 @@ extern int psw_x_thread;
 extern int tot_psw;
 extern size_t size_psw;
 extern int strict_check;
+extern int mac_comparison;
 
 extern int MAX_PASSWD_SINGLE_KERNEL;
 extern int DEV_NVIDIA;
@@ -207,12 +212,12 @@ extern cl_device_id*       cdDevices;       // OpenCL device(s)
 
 unsigned int * w_block_precomputed(unsigned char * salt);
 int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
-int parse_data(char *input_hash, 
-    unsigned char ** salt,
-    unsigned char ** nonce,
-    unsigned char ** vmk);
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce, unsigned char ** vmk, unsigned char ** mac);
+char * opencl_attack(char *dname, unsigned int * w_blocks,
+                    unsigned char * encryptedVMK,
+                    unsigned char * nonce, unsigned char * encryptedMAC,
+                    int gridBlocks);
 
-char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks);
 void setBufferPasswordSize(size_t avail, size_t * passwordBufferSize, int * numPassword);
 
 void * Calloc(size_t len, size_t size);

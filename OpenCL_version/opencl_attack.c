@@ -45,26 +45,34 @@ static int check_match() {
 }
 
 
-char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryptedVMK, unsigned char * nonce,  int gridBlocks)
+char *opencl_attack(char *dname, unsigned int * w_blocks,
+                    unsigned char * encryptedVMK,
+                    unsigned char * nonce, unsigned char * encryptedMAC,
+                    int gridBlocks)
 {
     cl_device_id        device_id;
     cl_program          cpProgram;  
-    cl_kernel           ckKernelAttack;   
-    cl_mem              deviceEncryptedVMK, deviceIV, devicePassword, deviceFound, w_blocks_d;
+    cl_kernel           ckKernelAttack; 
+    char                vmkIV[IV_SIZE], macIV[IV_SIZE], computeMacIV[IV_SIZE];
+    cl_mem              d_vmk, d_mac, d_macIV, d_computeMacIV;
+    cl_mem              devicePassword, deviceFound, w_blocks_d;
     cl_int              ciErr1, ciErr2, ccMajor;     
     size_t              szGlobalWorkSize;   
     size_t              szLocalWorkSize;    
 
     int                 numReadPassword, numPassword, passwordBufferSize, ret, totPsw=0; 
-    char                tmpIV[IV_SIZE];
     FILE                *fp_kernel, *fp_file_passwords;
-    //Very very ugly...
+    //Really ugly...
     char                fileNameAttack[] = "./OpenCL_version/kernel_attack.cl";
     size_t              source_size_attack, source_size;
     char                *source_str_attack;
     size_t len = 0;
     cl_int ret_cl = CL_SUCCESS, ret_cl_log = CL_SUCCESS, ret_info_kernel = CL_SUCCESS;
     char optProgram[128];
+    
+    unsigned int vmkIV0, vmkIV4, vmkIV8, vmkIV12;
+    unsigned int macIV0, macIV4, macIV8, macIV12;
+    unsigned int cMacIV0, cMacIV4, cMacIV8, cMacIV12;
 
     //------- READ CL FILE ------            
     fp_kernel = fopen(fileNameAttack, "rb");     
@@ -90,19 +98,51 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         fprintf(stderr, "crack_dict input error\n");
         return NULL;
     }
-
-    //-------- IV setup ------
-    memset(tmpIV, 0, IV_SIZE);
-    memcpy(tmpIV + 1, nonce, NONCE_SIZE);
-    if(IV_SIZE-1 - NONCE_SIZE - 1 < 0)
+/*
+    if(tot_psw <= 0)
     {
-        fprintf(stderr, "Nonce error\n");
+        fprintf(stderr, "Attack tot passwords error: %d\n", tot_psw);
         return NULL;
     }
-    *tmpIV = (unsigned char)(IV_SIZE - 1 - NONCE_SIZE - 1);
-    tmpIV[IV_SIZE-1] = 1; 
-    // --------------------------------------------------------------------------
+*/  
+    //-------- vmkIV setup ------
+    memset(vmkIV, 0, IV_SIZE);
+    vmkIV[0] = (unsigned char)(IV_SIZE - 1 - NONCE_SIZE - 1);
+    memcpy(vmkIV + 1, nonce, NONCE_SIZE);
+    if(IV_SIZE-1 - NONCE_SIZE - 1 < 0)
+    {
+        fprintf(stderr, "Attack nonce error\n");
+        return NULL;
+    }
+    vmkIV[IV_SIZE-1] = 1; 
+    // -----------------------
 
+    if(mac_comparison == 1)
+    {
+        //-------- macIV setup ------
+        memset(macIV, 0, IV_SIZE);
+        macIV[0] = (unsigned char)(IV_SIZE - 1 - NONCE_SIZE - 1);
+        memcpy(macIV + 1, nonce, NONCE_SIZE);
+        if(IV_SIZE-1 - NONCE_SIZE - 1 < 0)
+        {
+            fprintf(stderr, "Attack nonce error\n");
+            return NULL;
+        }
+        macIV[IV_SIZE-1] = 0; 
+        // -----------------------
+
+        //-------- computeMacIV setup ------
+        memset(computeMacIV, 0, IV_SIZE);
+        computeMacIV[0] = 0x3a;
+        memcpy(computeMacIV + 1, nonce, NONCE_SIZE);
+        if(IV_SIZE-1 - NONCE_SIZE - 1 < 0)
+        {
+            fprintf(stderr, "Attack nonce error\n");
+            return NULL;
+        }
+        computeMacIV[IV_SIZE-1] = 0x2c; 
+        // -----------------------
+    }
     // ---- Open File Dictionary ----
     if (!memcmp(dname, "-\0", 2)) {
         fp_file_passwords= stdin;
@@ -141,8 +181,16 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         CL_ERROR(ciErr1);
     }
 
-    ckKernelAttack = clCreateKernel(cpProgram, "opencl_bitcracker_attack", &ciErr1);
-    CL_ERROR(ciErr1);
+    if(mac_comparison == 1)
+    {
+        ckKernelAttack = clCreateKernel(cpProgram, "opencl_bitcracker_attack_mac", &ciErr1);
+        CL_ERROR(ciErr1);
+    }
+    else
+    {    
+        ckKernelAttack = clCreateKernel(cpProgram, "opencl_bitcracker_attack", &ciErr1);
+        CL_ERROR(ciErr1);
+    }
 
     size_t workgroup_size;
     ret_info_kernel = clGetKernelWorkGroupInfo(ckKernelAttack, cdDevices[gpu_id], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &workgroup_size, NULL);
@@ -173,7 +221,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
     // --------------------------------------------------------------------------
 
     // ------------------------------- Data setup -------------------------------
-    deviceEncryptedVMK = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, VMK_DECRYPT_SIZE*sizeof(unsigned char), NULL, &ciErr1);
+    d_vmk = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, VMK_FULL_SIZE*sizeof(unsigned char), NULL, &ciErr1);
     CL_ERROR(ciErr1);
     
     devicePassword = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, passwordBufferSize*sizeof(unsigned char), NULL, &ciErr1);
@@ -184,33 +232,64 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
 
     w_blocks_d = clCreateBuffer(cxGPUContext,  CL_MEM_READ_ONLY, SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(unsigned int), NULL, &ciErr1);
     CL_ERROR(ciErr1);
+
+    if(mac_comparison == 1)
+    {
+        d_mac = clCreateBuffer(cxGPUContext,  CL_MEM_READ_ONLY, MAC_SIZE * sizeof(char), NULL, &ciErr1);
+        CL_ERROR(ciErr1);
+
+        d_macIV = clCreateBuffer(cxGPUContext,  CL_MEM_READ_ONLY, IV_SIZE * sizeof(char), NULL, &ciErr1);
+        CL_ERROR(ciErr1);
+
+        d_computeMacIV = clCreateBuffer(cxGPUContext,  CL_MEM_READ_ONLY, IV_SIZE * sizeof(char), NULL, &ciErr1);
+        CL_ERROR(ciErr1);
+    }
+
     // --------------------------------------------------------------------------
 
     // ------------------------------- Write buffers -------------------------------
-    unsigned int tmp_global = ((unsigned int *)(tmpIV))[0];
-    unsigned int IV0=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
-    
-    tmp_global = ((unsigned int *)(tmpIV+4))[0];
-    unsigned int IV4=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
-   
-    tmp_global = ((unsigned int *)(tmpIV+8))[0];
-    unsigned int IV8=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
-    
-    tmp_global = ((unsigned int *)(tmpIV+12))[0];
-    unsigned int IV12=(unsigned int )(((unsigned int )(tmp_global & 0xff000000)) >> 24) | (unsigned int )((unsigned int )(tmp_global & 0x00ff0000) >> 8) | (unsigned int )((unsigned int )(tmp_global & 0x0000ff00) << 8) | (unsigned int )((unsigned int )(tmp_global & 0x000000ff) << 24); 
+    vmkIV0 = ((unsigned int *)(vmkIV))[0];
+    vmkIV4 = ((unsigned int *)(vmkIV+4))[0];
+    vmkIV8 = ((unsigned int *)(vmkIV+8))[0];
+    vmkIV12 = ((unsigned int *)(vmkIV+12))[0];
+
+    if(mac_comparison == 1)
+    {
+        macIV0 = ((unsigned int *)(macIV))[0];
+        macIV4 = ((unsigned int *)(macIV+4))[0];
+        macIV8 = ((unsigned int *)(macIV+8))[0];
+        macIV12 = ((unsigned int *)(macIV+12))[0];
+
+        cMacIV0 = ((unsigned int *)(computeMacIV))[0];
+        cMacIV4 = ((unsigned int *)(computeMacIV+4))[0];
+        cMacIV8 = ((unsigned int *)(computeMacIV+8))[0];
+        cMacIV12 = ((unsigned int *)(computeMacIV+12))[0];
+    }
 
     ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, w_blocks_d, CL_TRUE, 0, SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(int), w_blocks, 0, NULL, NULL);      
     CL_ERROR(ciErr1);  
     
-    ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, deviceEncryptedVMK, CL_TRUE, 0, VMK_DECRYPT_SIZE*sizeof(char), encryptedVMK+16, 0, NULL, NULL);      
+    ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, d_vmk, CL_TRUE, 0, VMK_FULL_SIZE*sizeof(char), encryptedVMK, 0, NULL, NULL);      
     CL_ERROR(ciErr1);
+
+    if(mac_comparison == 1)
+    {
+        ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, d_mac, CL_TRUE, 0, MAC_SIZE*sizeof(char), encryptedMAC, 0, NULL, NULL);      
+        CL_ERROR(ciErr1);  
+
+        ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, d_macIV, CL_TRUE, 0, IV_SIZE*sizeof(char), macIV, 0, NULL, NULL);      
+        CL_ERROR(ciErr1);  
+
+        ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, d_computeMacIV, CL_TRUE, 0, IV_SIZE*sizeof(char), computeMacIV, 0, NULL, NULL);      
+        CL_ERROR(ciErr1);  
+    }
     // ----------------------------------------------------------------------------
 
     szLocalWorkSize = GPU_MAX_WORKGROUP_SIZE;
     szGlobalWorkSize = gridBlocks*szLocalWorkSize;  //TOT THREADS 
 
-    printf("Starting OpenCL attack:\n\tLocal Work Size: %d\n\tWork Group Number: %d\n\tGlobal Work Size: %zd\n\tPassword per thread: %d\n\tPassword per kernel: %d\n\tDictionary: %s\n\n", 
-        szLocalWorkSize, gridBlocks, szGlobalWorkSize, psw_x_thread, numPassword, (fp_file_passwords == stdin)?"standard input":dname);
+    printf("Starting OpenCL attack:\n\tLocal Work Size: %zd\n\tWork Group Number: %d\n\tGlobal Work Size: %zd\n\tPassword per thread: %d\n\tPassword per kernel: %d\n\tDictionary: %s\n\tStrict Check (-s): %s\n\tMAC Comparison (-m): %s\n\t\n\n", 
+        szLocalWorkSize, gridBlocks, szGlobalWorkSize, psw_x_thread, numPassword, (fp_file_passwords == stdin)?"standard input":dname, (strict_check == 1)?"Yes":"No", (mac_comparison == 1)?"Yes":"No");
 
     int iter=0;
     while(!feof(fp_file_passwords))
@@ -233,23 +312,54 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
         ciErr1 |= clSetKernelArg(ckKernelAttack, 2, sizeof(cl_mem), (void*)&deviceFound);
         CL_ERROR(ciErr1);
 
-        ciErr1 |= clSetKernelArg(ckKernelAttack, 3, sizeof(cl_mem), (void*)&deviceEncryptedVMK);
+        ciErr1 |= clSetKernelArg(ckKernelAttack, 3, sizeof(cl_mem), (void*)&d_vmk);
         CL_ERROR(ciErr1);
 
         ciErr1 |= clSetKernelArg(ckKernelAttack, 4, sizeof(cl_mem), (void*)&w_blocks_d);
         CL_ERROR(ciErr1);
 
-        ciErr1 |= clSetKernelArg(ckKernelAttack, 5, sizeof(cl_int), (void*)&IV0);
+        ciErr1 |= clSetKernelArg(ckKernelAttack, 5, sizeof(cl_int), (void*)&vmkIV0);
         CL_ERROR(ciErr1);
 
-        ciErr1 |= clSetKernelArg(ckKernelAttack, 6, sizeof(cl_int), (void*)&IV4);
+        ciErr1 |= clSetKernelArg(ckKernelAttack, 6, sizeof(cl_int), (void*)&vmkIV4);
         CL_ERROR(ciErr1);
 
-        ciErr1 |= clSetKernelArg(ckKernelAttack, 7, sizeof(cl_int), (void*)&IV8);
+        ciErr1 |= clSetKernelArg(ckKernelAttack, 7, sizeof(cl_int), (void*)&vmkIV8);
         CL_ERROR(ciErr1);
 
-        ciErr1 |= clSetKernelArg(ckKernelAttack, 8, sizeof(cl_int), (void*)&IV12);
+        ciErr1 |= clSetKernelArg(ckKernelAttack, 8, sizeof(cl_int), (void*)&vmkIV12);
         CL_ERROR(ciErr1);
+
+        if(mac_comparison == 1)
+        {
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 9, sizeof(cl_mem), (void*)&d_mac);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 10, sizeof(cl_int), (void*)&macIV0);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 11, sizeof(cl_int), (void*)&macIV4);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 12, sizeof(cl_int), (void*)&macIV8);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 13, sizeof(cl_int), (void*)&macIV12);
+            CL_ERROR(ciErr1);
+
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 14, sizeof(cl_int), (void*)&cMacIV0);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 15, sizeof(cl_int), (void*)&cMacIV4);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 16, sizeof(cl_int), (void*)&cMacIV8);
+            CL_ERROR(ciErr1);
+
+            ciErr1 |= clSetKernelArg(ckKernelAttack, 17, sizeof(cl_int), (void*)&cMacIV12);
+            CL_ERROR(ciErr1);
+        }
         // --------------------------------------------------------
               
         time_t start,end;
@@ -273,7 +383,6 @@ char *opencl_attack(char *dname, unsigned int * w_blocks, unsigned char * encryp
 
         printf("OpenCL Kernel execution #%d\n\tEffective number psw: %d\n\tTime: %f sec\n\tPasswords x second: %10.2f pw/sec\n", 
                 iter, numReadPassword, TIMER_ELAPSED(0)/1.0E+6, numReadPassword/(TIMER_ELAPSED(0)/1.0E+6));
-  //      printf ("TIME timer: %d passwords in %.2lf seconds => %.2f pwd/s\n", numReadPassword, dif, (double)(numReadPassword/dif) );
 
         ret = clFlush(cqCommandQueue);       
         ret = clFinish(cqCommandQueue);
@@ -306,7 +415,7 @@ out:
     if(cpProgram)clReleaseProgram(cpProgram);
     if(w_blocks_d)clReleaseMemObject(w_blocks_d);
     if(devicePassword)clReleaseMemObject(devicePassword);
-    if(deviceEncryptedVMK)clReleaseMemObject(deviceEncryptedVMK);
+    if(d_vmk)clReleaseMemObject(d_vmk);
     if(deviceFound)clReleaseMemObject(deviceFound);
       
     free(source_str_attack);       

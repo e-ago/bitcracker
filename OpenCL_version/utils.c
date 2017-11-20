@@ -73,7 +73,7 @@ void print_hex(unsigned char *str, int len)
 		printf("%02x", str[i]);
 }
 
-int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk)
+int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk, unsigned char ** mac)
 {
 	char * hash;
 	char *p;
@@ -81,10 +81,13 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	FILE * fphash;
 	char tmp[2];
 	int j=0;
+	const char zero_string[17]="0000000000000000";
 
 	(*salt) = (unsigned char *) Calloc(SALT_SIZE, sizeof(unsigned char));
 	(*nonce) = (unsigned char *) Calloc(NONCE_SIZE, sizeof(unsigned char));
 	(*vmk) = (unsigned char *) Calloc(VMK_SIZE, sizeof(unsigned char));
+	(*mac) = (unsigned char *) Calloc(MAC_SIZE, sizeof(unsigned char));
+
 	hash = (char *) Calloc(INPUT_HASH_SIZE, sizeof(char));
 
 	if(!input_hash)
@@ -164,7 +167,21 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	}
 	
 	p = strtokm(NULL, "$"); // data
-	for (i = 0, j = 0; i < vmk_size*2; i+=2, j++)
+	for (i = 0, j = 0; i < MAC_SIZE*2; i+=2, j++)
+	{
+		tmp[0] = p[i];
+		tmp[1] = p[i+1];
+		long int ret = strtol(tmp, NULL, 16);
+		(*mac)[j] = (unsigned char)(ret); //((ARCH_INDEX(p[i * 2]) * 16) + ARCH_INDEX(p[i * 2 + 1]));
+	}
+
+	if(mac_comparison == 1 && !memcmp((*mac), zero_string, MAC_SIZE))
+	{
+		free(*mac);
+		(*mac)=NULL;
+	}
+
+	for (j=0; i < vmk_size*2; i+=2, j++)
 	{
 		tmp[0] = p[i];
 		tmp[1] = p[i+1];
@@ -178,6 +195,7 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 		free(*salt);
 		free(*nonce);
 		free(*vmk);
+		free(*mac);
 
 		return BIT_FAILURE;
 }
