@@ -14,7 +14,7 @@ Our attack has been tested on several memory units encrypted with BitLocker runn
 
 ## To Do List
 
-- New attack mode on the Recovery Key authentication method
+- New attack mode to the Recovery Key authentication method
 - Build Recovery Keys dictionary 
 - Increase maximum password length
 
