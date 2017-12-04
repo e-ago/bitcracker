@@ -182,7 +182,7 @@ Performance:
 | OpenCL   | AMDM   | 32  | 64 | 524.288            | 241           | 505 MH/s   |
 | OpenCL   | GFTX   | 8   | 24 | 196.608            | 884           | 1.853 MH/s |
 
-N.B. Each password requires about 2.097.152 application of SHA-256
+N.B. Each password requires about 2.097.152 SHA-256
 
 ## John The Ripper
 
