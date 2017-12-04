@@ -1,43 +1,55 @@
 #!/usr/bin/env bash
 
-
 mkdir -p test_hash
 
 printf "\n\n************ Extract BitLocker hash from encrypted memory units ************\n\n"
 
 #Image encrypted with Windows 8.1 Enterprise
-./build/bitcracker_hash -o test_hash/imgWin8.txt -i ./Images/imgWin8
+./build/bitcracker_hash -o test_hash -i ./Images/imgWin8
+mv ./test_hash/hash_user_pass.txt test_hash/imgWin8_user_password.txt
+mv ./test_hash/hash_recv_pass.txt test_hash/imgWin8_recovery_password.txt
 printf "\n\n"
 
 #Image encrypted with Windows 7 Pro
-./build/bitcracker_hash -o test_hash/imgWin7.txt -i ./Images/imgWin7
+./build/bitcracker_hash -o test_hash -i ./Images/imgWin7
+mv test_hash/hash_user_pass.txt test_hash/imgWin7_user_password.txt
+mv test_hash/hash_recv_pass.txt test_hash/imgWin7_recovery_password.txt
 printf "\n\n"
 
-#Image encrypted with Windows 10 Enteprise using BitLocker compatible mode
-./build/bitcracker_hash -o test_hash/imgWin10Compatible.txt -i ./Images/imgWin10Compatible.vhd
+#Image encrypted with Windows 10 Enteprise using BitLocker Compatible Mode
+./build/bitcracker_hash -o test_hash -i ./Images/imgWin10Compat.vhd
+mv test_hash/hash_user_pass.txt test_hash/imgWin10Compat_user_password.txt
+mv test_hash/hash_recv_pass.txt test_hash/imgWin10Compat_recovery_password.txt
 printf "\n\n"
 
-#Image encrypted with Windows 10 Enteprise using BitLocker not compatible mode
-./build/bitcracker_hash -o test_hash/imgWin10NotCompatible.txt -i ./Images/imgWin10NotCompatible.vhd
+#Image encrypted with Windows 10 Enteprise using BitLocker Not Compatible Mode
+./build/bitcracker_hash -o test_hash -i ./Images/imgWin10NotCompat.vhd
+mv test_hash/hash_user_pass.txt test_hash/imgWin10NotCompat_user_password.txt
+mv test_hash/hash_recv_pass.txt test_hash/imgWin10NotCompat_recovery_password.txt
 printf "\n\n"
-
-#Image encrypted with Windows 10 Enteprise using BitLocker not compatible mode, long password (27 chars)
-./build/bitcracker_hash -o test_hash/imgWin10NotCompatibleLong27.txt -i ./Images/imgWin10NotCompatibleLong27.vhd
 
 
 printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
-#Show help
+#Print help
 ./build/bitcracker_cuda -h
 
-./build/bitcracker_cuda -f ./test_hash/imgWin8.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
+#Windows 8.1
 
-#Same as previous test, with MAC verification
-./build/bitcracker_cuda -f ./test_hash/imgWin8.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0 -m
+./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
+#Same test with MAC verification
+./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -m -u
 
-./build/bitcracker_cuda -f ./test_hash/imgWin7.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
+#Windows 7
+./build/bitcracker_cuda -f ./test_hash/imgWin7_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
 
-./build/bitcracker_cuda -f ./test_hash/imgWin10Compatible.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
+#Windows 10 Compatbile Mode
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r
+#Same test with MAC verification
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r -m
 
-./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatible.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
-
-./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatibleLong27.txt -d ./Dictionary/test_passwords.txt -t 1 -b 1 -g 0
+#Windows 10 Not Compatbile Mode
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r
+#Same test with MAC verification
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r -m
