@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 NGPU=0;
-SINGLE_BLOCK="$SINGLE_BLOCK";
+SINGLE_BLOCK="-t 1 -b 1 -g $NGPU";
 mkdir -p test_hash
 
 printf "\n\n************ Extract BitLocker hash from encrypted memory units ************\n\n"
@@ -36,6 +36,7 @@ printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
 ./build/bitcracker_cuda -h
 
 #Windows 8.1
+
 ./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 #Same test with MAC verification
 ./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -m -u
