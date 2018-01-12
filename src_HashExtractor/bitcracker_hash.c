@@ -98,8 +98,8 @@ static void print_hex(unsigned char *str, int len, FILE *out)
 
 int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRecovery)
 {
-	int version = 0, j = 0, i = 0, match = 0;
-	long int fileLen = 0;
+	int version = 0, i = 0, match = 0;
+	long int fileLen = 0, j=0;
 	int vmkFound=0, recoveryFound=0;
 
 	const char signature[SIGNATURE_LEN] = "-FVE-FS-";
