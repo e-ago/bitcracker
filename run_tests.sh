@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+NGPU=0;
+SINGLE_BLOCK="$SINGLE_BLOCK";
 mkdir -p test_hash
 
 printf "\n\n************ Extract BitLocker hash from encrypted memory units ************\n\n"
@@ -34,22 +36,21 @@ printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
 ./build/bitcracker_cuda -h
 
 #Windows 8.1
-
-./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
+./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 #Same test with MAC verification
-./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -m -u
+./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -m -u
 
 #Windows 7
-./build/bitcracker_cuda -f ./test_hash/imgWin7_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
+./build/bitcracker_cuda -f ./test_hash/imgWin7_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 
 #Windows 10 Compatbile Mode
-./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
-./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r
 #Same test with MAC verification
-./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r -m
+./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r -m
 
 #Windows 10 Not Compatbile Mode
-./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_user_password.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
-./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r
 #Same test with MAC verification
-./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt -t 1 -b 1 -g 0 -r -m
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r -m
