@@ -89,7 +89,9 @@ $bitlocker$2$16$8b7be4f7802275ffbdad3766c7f7fa4a$1048576$12$304a4ac192a2cf010600
 Output files: "test_hash/hash_user_pass.txt" and "test_hash/hash_recv_pass.txt"
 ```
 
-N.B. While the *hash_recv_pass.txt* should be always created, the *hash_user_pass.txt* is created only if the input device has been encrypted with the User Password authentication method.
+Notes:
+- While the *hash_recv_pass.txt* should be always created, the *hash_user_pass.txt* is created only if the input device has been encrypted with the User Password authentication method.
+- BDE encrypted volumes could have different structure for different authentication methods. If the *bitcracker_hash* tool it not able to find the Recovery Password on your image, please open an issue or contact me
 
 #### Step 3: Start the attack
 
@@ -191,7 +193,7 @@ The hash generated with *bitcracker_hash* (see *How To* section) are fully compa
 
 ## Changelog
 
-#### Next Relese
+#### Next Release
 
 * Provide a dictionary with all the possible Recovery Passwords (they are not randomly generated!)
 * In case of User Password attack mode, increase the maximum size allowed for an input password (currently the maximum is 27 characters)
