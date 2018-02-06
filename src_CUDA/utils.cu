@@ -228,12 +228,10 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 	char tmp[PSW_CHAR_SIZE], tmp2[PSW_CHAR_SIZE], *p;
 	memset(tmp, 0, PSW_CHAR_SIZE);
 	
-	//fseek(fp, 0, SEEK_SET);
-
 	if (fp == NULL || feof(fp) || buf_i == NULL)
 	        return -1;
 
-	while(fgets(tmp, PSW_CHAR_SIZE, fp) && (i < maxNumPsw)) {
+	while(fgets(tmp, PSW_CHAR_SIZE, fp)) {
 		size = (strlen(tmp)-1);
 		j=0; k=0; count=0;
 		if(tmp[0] == '\n' || size < MIN_INPUT_PASSWORD_LEN || size > SECOND_LENGHT) continue;
@@ -323,8 +321,11 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 			}
 		}
 
+
 		memset(tmp, 0, PSW_CHAR_SIZE);
 		i++;
+
+		if(i >= maxNumPsw) break;
 	}
 
 	return i;
