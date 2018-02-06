@@ -228,7 +228,7 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 	char tmp[PSW_CHAR_SIZE], tmp2[PSW_CHAR_SIZE], *p;
 	memset(tmp, 0, PSW_CHAR_SIZE);
 	
-	fseek(fp, 0, SEEK_SET);
+	//fseek(fp, 0, SEEK_SET);
 
 	if (fp == NULL || feof(fp) || buf_i == NULL)
 	        return -1;

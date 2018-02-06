@@ -224,7 +224,7 @@ int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 	char tmp[PSW_CHAR_SIZE], tmp2[PSW_CHAR_SIZE], *p;
 	memset(tmp, 0, PSW_CHAR_SIZE);
 	
-	fseek(fp, 0, SEEK_SET);
+	//fseek(fp, 0, SEEK_SET);
 
 	if (fp == NULL || feof(fp) || buf_i == NULL)
 	        return -1;
@@ -300,6 +300,7 @@ int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 				if(k <= size)
 					((*buf_i)+(i*PSW_INT_SIZE)+j)[0] = ((*buf_i)+(i*PSW_INT_SIZE)+j)[0] | ( (((unsigned int)tmp[k]) << 8) & 0x0000FF00);
 
+				printf("%d) %x\n", j, ((*buf_i)+(i*PSW_INT_SIZE)+j)[0]);
 				j++;
 				k++;
 			} while(k <= size);
@@ -308,6 +309,8 @@ int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 			{
 				((*buf_i)+(i*PSW_INT_SIZE)+14)[0] = 0;
 				((*buf_i)+(i*PSW_INT_SIZE)+15)[0] = ((int)(((size*2) << 3) >> 8)) << 8 | ((int)((size*2) << 3));
+				printf("14) %x\n", ((*buf_i)+(i*PSW_INT_SIZE)+14)[0]);
+				printf("15) %x\n", ((*buf_i)+(i*PSW_INT_SIZE)+15)[0]);
 			}
 			else
 			{
