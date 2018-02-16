@@ -113,6 +113,7 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 	unsigned char padding[16] = {0};
 	char c,d;
 	FILE *outFileUser, *outFileRecv, * encryptedImage;
+	long int curr_fp=0;
 
 	printf("Opening file %s\n", encryptedImagePath);
 	encryptedImage = fopen(encryptedImagePath, "r");
@@ -155,7 +156,7 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 		}
 
 		if (i == 4) {
-			fprintf(stderr, "\nVMK entry found at 0x%08lx\n", (ftell(encryptedImage) - i - 3));
+			fprintf(stderr, "\nVMK entry found at 0x%08lx\n", (ftell(encryptedImage) - i));
 			fseek(encryptedImage, 27, SEEK_CUR);
 			c = (unsigned char)fgetc(encryptedImage);
 			d = (unsigned char)fgetc(encryptedImage);
@@ -166,9 +167,10 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				fprintf(stderr, "VMK encrypted with TPM...not supported!\n");
 			else if ((c == key_protection_start_key[0]) && (d == key_protection_start_key[1])) 
 				fprintf(stderr, "VMK encrypted with Startup Key...not supported!\n");
-			else if ((c == key_protection_recovery[0]) && (d == key_protection_recovery[1])) 
+			else if ((c == key_protection_recovery[0]) && (d == key_protection_recovery[1]) && recoveryFound == 0) 
 			{
-				fprintf(stderr, "VMK encrypted with Recovery key found!\n");
+				curr_fp = ftell(encryptedImage);
+				fprintf(stderr, "VMK encrypted with Recovery Password found at %lx\n", curr_fp);
 				fseek(encryptedImage, 12, SEEK_CUR);
 				fillBuffer(encryptedImage, r_salt, SALT_SIZE);
 				fseek(encryptedImage, 147, SEEK_CUR);
@@ -190,7 +192,8 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 			}
 			else if ((c == key_protection_password[0]) && (d == key_protection_password[1]) && vmkFound == 0) 
 			{
-				fprintf(stderr, "VMK encrypted with user password found!\n");
+				curr_fp = ftell(encryptedImage);
+				fprintf(stderr, "VMK encrypted with User Password found at %lx\n", curr_fp);
 				fseek(encryptedImage, 12, SEEK_CUR);
 				fillBuffer(encryptedImage, p_salt, SALT_SIZE);
 				fseek(encryptedImage, 83, SEEK_CUR);
@@ -211,7 +214,7 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 		}
 
 		i = 0;
-		if(vmkFound == 1 && recoveryFound == 1) break;
+		//if(vmkFound == 1 || recoveryFound == 1) break;
 	}
 
 	fclose(encryptedImage);
