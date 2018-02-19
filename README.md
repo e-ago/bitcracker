@@ -1,7 +1,8 @@
 # BitCracker
 
 BitCracker is the first open source password cracking tool for memory units (Hard Disk, USB Pendrive, SD card, etc...) encrypted with [BitLocker](https://technet.microsoft.com/en-us/library/cc766295(v=ws.10).aspx), an encryption feature available on Windows Vista, 7, 8.1 and 10 (Ultimate, Pro, Enterprise editions).
-BitCracker is a mono-GPU algorithm (implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl) ) which performs a dictionary attack against memory units encrypted with BitLocker using the User Password or the Recovery Password authentication methods.
+BitCracker is a mono-GPU algorithm (implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl) ) which performs a dictionary attack against memory units encrypted with BitLocker.
+For all the authentication (encryption) methods offered by BitLocker (i.e. User Password, Smart Card, TPM, TPM+PIN, etc..) you can always use the BitCracker Recovery Password attack (-r option). As additional feature, if your device has been encrypted with an User Password (BitLocker-To-Go feature) you can use the BitCracker User Password attack (-u option). 
 
 ## User Password Attack
 
