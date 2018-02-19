@@ -14,7 +14,7 @@ To find the password used during the encryption with BitCracker, you need to spe
 ## Recovery Password Attack
 
 During the encryption of a memory device, (regardless the authentication method) BitLocker asks the user to store somewhere a Recovery Password that can be used to restore the access to the encrypted memory unit in the event that she/he can't unlock the drive normally.
-Thus the Recovery Password is a common factor for all the authentication methods and it consists of a 48-digit key like this:
+Thus the Recovery Password is a kind of *passe-partout* for all the authentication methods and it consists of a 48-digit key like this:
 
 > 236808-089419-192665-495704-618299-073414-538373-542366
 
@@ -86,12 +86,13 @@ $bitlocker$0$16$89a5bad722db4a729d3c7b9ee8e76a29$1048576$12$304a4ac192a2cf010300
 Recovery Key hash:
 $bitlocker$2$16$8b7be4f7802275ffbdad3766c7f7fa4a$1048576$12$304a4ac192a2cf0106000000$60$6e72f6ef6ba688e72211b8cf8cc722affd308882965dc195f85614846f5eb7d9037d4d63bcc1d6e904f0030cf2e3a95b3e1067447b089b7467f86688
 
-Output files: "test_hash/hash_user_pass.txt" and "test_hash/hash_recv_pass.txt"
+Output file for user password attack: "hash_user_pass.txt"
+Output file for recovery password attack: "hash_recv_pass.txt"
 ```
 
 Notes:
 - While the *hash_recv_pass.txt* should be always created, the *hash_user_pass.txt* is created only if the input device has been encrypted with the User Password authentication method.
-- BDE encrypted volumes could have different structure for different authentication methods. If the *bitcracker_hash* tool it not able to find the Recovery Password on your image, please open an issue or contact me
+- **BDE encrypted volumes could have different structure for different authentication methods. If *bitcracker_hash* is not able to find the Recovery Password on your encrypted image, please open an issue or contact me**
 
 #### Step 3: Start the attack
 
