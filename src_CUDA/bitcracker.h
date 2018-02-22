@@ -116,13 +116,13 @@ extern unsigned char * salt;
 /* ++++++++++++++++++++++++++++++++++++++ DEVICE FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIteration, unsigned char padding[PADDING_SIZE], uint32_t * w_blocks);
 
-__global__ __launch_bounds__(1024,1) void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, 
+__global__ __launch_bounds__(1024,1) void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkKey, 
 							unsigned char * IV, int strict_check,
 							int v0, int v1, int v2, int v3,
 							uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method);
 
 __global__ __launch_bounds__(1024,1) void decrypt_vmk_with_mac(
-					int numStream, int tot_psw_kernel, int *found, 
+					int tot_psw_kernel, int *found, 
 					unsigned char * vmkKey, unsigned char * vmkIV,
 					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
 					int v0, int v1, int v2, int v3,

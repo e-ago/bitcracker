@@ -22,21 +22,20 @@
 #include "bitcracker.h"
 
 texture<uint32_t>	w_texture;
-texture<uint32_t>	w_password0;
-texture<uint32_t>	w_password1;
+texture<uint32_t>	w_password;
 
-int			*deviceFound[2], *hostFound[2];
-char			*hostPassword[2];
-uint32_t		*hostPasswordInt[2], *devicePasswordInt[2];
+int			*deviceFound, *hostFound;
+char			*hostPassword;
+uint32_t		*hostPasswordInt, *devicePasswordInt;
 unsigned char		outPsw[MAX_INPUT_PASSWORD_LEN+1];
 int			outIndexPsw=0;
 
-static int check_match(int iStream) {
+static int check_match() {
 	int i=0;
 
-	if (*hostFound[iStream] >= 0){
-		outIndexPsw=*(hostFound[iStream]);
-		snprintf((char*)outPsw, PSW_CHAR_SIZE, "%s", (char *)(hostPassword[iStream]+(outIndexPsw*PSW_CHAR_SIZE)));
+	if (hostFound[0] >= 0){
+		outIndexPsw=(hostFound[0]);
+		snprintf((char*)outPsw, PSW_CHAR_SIZE, "%s", (char *)(hostPassword+(outIndexPsw*PSW_CHAR_SIZE)));
 		for(i=0; i<MAX_INPUT_PASSWORD_LEN; i++)
 			if(outPsw[i] == 0x80 || outPsw[i] == 0xffffff80) outPsw[i]='\0';
 
@@ -53,16 +52,14 @@ char *cuda_attack(
 	int gridBlocks)
 {
 	FILE		*fp;
-	int		indexStream, numReadPassword[2], firstLoop, match=0;
+	int		indexStream, numReadPassword, match=0, done=0, w_blocks_h[4], cudaThreads=CUDA_THREADS_NO_MAC;
 	long long	totReadPsw = 0;
 	uint8_t		vmkIV[IV_SIZE], *d_vmkIV, *d_vmk;
 	uint8_t		macIV[IV_SIZE], *d_macIV, *d_mac;
 	uint8_t		computeMacIV[IV_SIZE], *d_computeMacIV;
-	int 		cudaThreads=CUDA_THREADS_NO_MAC;
-	cudaEvent_t	start[2], stop[2];
-	cudaStream_t	stream[2];
+	cudaEvent_t	start, stop;
+	cudaStream_t	stream;
 	float 		elapsedTime;
-	int 		w_blocks_h[4];
 
 	if(dname == NULL || w_blocks_d == NULL || encryptedVMK == NULL)
 	{
@@ -129,20 +126,15 @@ char *cuda_attack(
 	}
 	// -------------------------------
 
-	// ---- HOST VARIABLES ----
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPasswordInt[0], tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaHostAllocDefault) );
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPasswordInt[1], tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaHostAllocDefault) );
-	memset(hostPasswordInt[0], tot_psw * PSW_INT_SIZE * sizeof(uint32_t), 0);
-	memset(hostPasswordInt[1], tot_psw * PSW_INT_SIZE * sizeof(uint32_t), 0);
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPassword[0], tot_psw*PSW_CHAR_SIZE*sizeof(char), cudaHostAllocDefault) );
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPassword[1], tot_psw*PSW_CHAR_SIZE*sizeof(char), cudaHostAllocDefault) );
-
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostFound[0], sizeof(uint32_t), cudaHostAllocDefault) );
-	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostFound[1], sizeof(uint32_t), cudaHostAllocDefault) );
-	*hostFound[0] = *hostFound[1] = -1;
+	// ---- HOST VARS ----
+	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPasswordInt, tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaHostAllocDefault) );
+	memset(hostPasswordInt, tot_psw * PSW_INT_SIZE * sizeof(uint32_t), 0);
+	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostPassword, tot_psw*PSW_CHAR_SIZE*sizeof(char), cudaHostAllocDefault) );
+	BITCRACKER_CUDA_CHECK( cudaHostAlloc( (void ** ) &hostFound, sizeof(uint32_t), cudaHostAllocDefault) );
+	*hostFound = -1;
 	// ------------------------
 
-	// ---- CUDA VARIABLES ----
+	// ---- CUDA VARS ----
 	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &d_vmk, VMK_FULL_SIZE*sizeof(uint8_t)) );
 	BITCRACKER_CUDA_CHECK( cudaMemcpy(d_vmk, (encryptedVMK), VMK_FULL_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
 	
@@ -161,30 +153,20 @@ char *cuda_attack(
 		BITCRACKER_CUDA_CHECK( cudaMemcpy(d_computeMacIV, computeMacIV, IV_SIZE*sizeof(uint8_t), cudaMemcpyHostToDevice) );
 	}
 
-	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &devicePasswordInt[0], (tot_psw * PSW_INT_SIZE * sizeof(uint32_t)) ) );
-	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &devicePasswordInt[1], (tot_psw * PSW_INT_SIZE * sizeof(uint32_t)) ) );
+	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &devicePasswordInt, (tot_psw * PSW_INT_SIZE * sizeof(uint32_t)) ) );	
+	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &deviceFound, (sizeof(uint32_t)) ) );
+	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceFound, hostFound, sizeof(uint32_t), cudaMemcpyHostToDevice) );
+	BITCRACKER_CUDA_CHECK( cudaStreamCreate(&(stream)) );
+	BITCRACKER_CUDA_CHECK( cudaEventCreate(&start) );
+	BITCRACKER_CUDA_CHECK( cudaEventCreate(&stop) );
 	
-	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &deviceFound[0], (sizeof(uint32_t)) ) );
-	BITCRACKER_CUDA_CHECK( cudaMalloc( (void ** ) &deviceFound[1], (sizeof(uint32_t)) ) );
-	
-	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceFound[0], hostFound[0], sizeof(uint32_t), cudaMemcpyHostToDevice) );
-	BITCRACKER_CUDA_CHECK( cudaMemcpy(deviceFound[1], hostFound[1], sizeof(uint32_t), cudaMemcpyHostToDevice) );
-
-	BITCRACKER_CUDA_CHECK( cudaStreamCreate(&(stream[0])) );
-	BITCRACKER_CUDA_CHECK( cudaStreamCreate(&(stream[1])) );
-
-	BITCRACKER_CUDA_CHECK( cudaEventCreate(&start[0]) );
-	BITCRACKER_CUDA_CHECK( cudaEventCreate(&start[1]) );
-	BITCRACKER_CUDA_CHECK( cudaEventCreate(&stop[0]) );
-	BITCRACKER_CUDA_CHECK( cudaEventCreate(&stop[1]) );
 	// ---------------------
 
 	BITCRACKER_CUDA_CHECK( cudaMemcpy(w_blocks_h, w_blocks_d, 4*sizeof(int), cudaMemcpyDeviceToHost) );
 
 	// -------- TEXTURE --------
 	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_texture, w_blocks_d, (SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t))));
-	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_password0, devicePasswordInt[0], (tot_psw * PSW_INT_SIZE * sizeof(uint32_t))));
-	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_password1, devicePasswordInt[1], (tot_psw * PSW_INT_SIZE * sizeof(uint32_t))));
+	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_password, devicePasswordInt, (tot_psw * PSW_INT_SIZE * sizeof(uint32_t))));
 	
 	// -------------------------
 
@@ -198,90 +180,61 @@ char *cuda_attack(
 	uint32_t s2 =  ((uint32_t)salt[8] ) << 24 | ((uint32_t)salt[9] ) << 16 | ((uint32_t)salt[10])  <<  8 | ((uint32_t)salt[11]);
 	uint32_t s3 =  ((uint32_t)salt[12])  << 24 | ((uint32_t)salt[13])  << 16 | ((uint32_t)salt[14])  <<  8 | ((uint32_t)salt[15]);
 
-	indexStream = 1;
-	firstLoop=TRUE;
-	while(!feof(fp)) {
+	while(!done) {
 		indexStream ^= 1;
-		numReadPassword[indexStream] = readFilePassword(&hostPasswordInt[indexStream], &hostPassword[indexStream], tot_psw, fp);
-		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(devicePasswordInt[indexStream], hostPasswordInt[indexStream], tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaMemcpyHostToDevice, stream[indexStream]) );
-
-		if(firstLoop == FALSE) BITCRACKER_CUDA_CHECK( cudaStreamSynchronize(stream[indexStream^1]) );
-		BITCRACKER_CUDA_CHECK( cudaEventRecord(start[indexStream], stream[indexStream]) );
+		numReadPassword = readFilePassword(&hostPasswordInt, &hostPassword, tot_psw, fp);
+		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(devicePasswordInt, hostPasswordInt, tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaMemcpyHostToDevice, stream) );
+		BITCRACKER_CUDA_CHECK( cudaEventRecord(start, stream) );
 		if(mac_comparison == 1)
 		{
 			//Slower attack with MAC verification
-			decrypt_vmk_with_mac<<<gridBlocks, CUDA_THREADS_WITH_MAC, 0, stream[indexStream]>>>(indexStream, 
-				numReadPassword[indexStream], deviceFound[indexStream], d_vmk, d_vmkIV, d_mac, d_macIV, d_computeMacIV,
-				w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
-				s0, s1, s2, s3, attack_mode);
+			decrypt_vmk_with_mac<<<gridBlocks, CUDA_THREADS_WITH_MAC, 0, stream>>>( 
+												numReadPassword, deviceFound, 
+												d_vmk, d_vmkIV, d_mac, d_macIV, d_computeMacIV,
+												w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
+												s0, s1, s2, s3, attack_mode
+												);
 		}
 		else
 		{
 			//Faster attack
-			decrypt_vmk<<<gridBlocks, CUDA_THREADS_NO_MAC, 0, stream[indexStream]>>>(indexStream, 
-				numReadPassword[indexStream], deviceFound[indexStream], d_vmk, d_vmkIV, strict_check, 
-				w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
-				s0, s1, s2, s3, attack_mode);
+			decrypt_vmk<<<gridBlocks, CUDA_THREADS_NO_MAC, 0, stream>>>(
+											numReadPassword, deviceFound, d_vmk, d_vmkIV, strict_check, 
+											w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
+											s0, s1, s2, s3, attack_mode);
 		}
 
 		BITCRACKER_CUDA_CHECK_LAST_ERROR();
-		BITCRACKER_CUDA_CHECK( cudaEventRecord(stop[indexStream], stream[indexStream]) );		
-		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(hostFound[indexStream], deviceFound[indexStream], sizeof(unsigned int), cudaMemcpyDeviceToHost, stream[indexStream]) );
-	
-		if(firstLoop == FALSE)
-		{
-			totReadPsw += numReadPassword[indexStream^1];
-			BITCRACKER_CUDA_CHECK( cudaEventElapsedTime(&elapsedTime, start[indexStream^1], stop[indexStream^1]) );
-			
-			printf("CUDA Kernel execution:\n\tStream %d\n\tEffective number psw: %d\n\tPasswords Range:\n\t\t%s\n\t\t.....\n\t\t%s\n\tTime: %f sec\n\tPasswords x second: %8.2f pw/sec\n", 
-							indexStream^1, numReadPassword[indexStream^1], 
-							(char *)hostPassword[indexStream^1], 
-							(char *)(hostPassword[indexStream^1]+((numReadPassword[indexStream^1]-1)*PSW_CHAR_SIZE)), 
-							cudaThreads, gridBlocks, (elapsedTime/1000.0), numReadPassword[indexStream^1]/(elapsedTime/1000.0));
-			
-			match=check_match(indexStream^1);
-			if(match) break;
-		}
-
-    		firstLoop = FALSE;
+		BITCRACKER_CUDA_CHECK( cudaEventRecord(stop, stream) );
+		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(hostFound, deviceFound, sizeof(unsigned int), cudaMemcpyDeviceToHost, stream) );
+		BITCRACKER_CUDA_CHECK( cudaStreamSynchronize(stream) );
+		totReadPsw += numReadPassword;
+		BITCRACKER_CUDA_CHECK( cudaEventElapsedTime(&elapsedTime, start, stop) );
+		
+		printf("CUDA Kernel execution:\n\tEffective passwords: %d\n\tPasswords Range:\n\t\t%s\n\t\t.....\n\t\t%s\n\tTime: %f sec\n\tPasswords x second: %8.2f pw/sec\n", 
+						numReadPassword, 
+						(char *)hostPassword, 
+						(char *)(hostPassword+((numReadPassword-1)*PSW_CHAR_SIZE)), 
+						cudaThreads, gridBlocks, (elapsedTime/1000.0), numReadPassword/(elapsedTime/1000.0));
+		
+		match=check_match();
+		if(match) done=1;
+    		if(!feof(fp)) done=1;
 	}
 
-	BITCRACKER_CUDA_CHECK( cudaStreamSynchronize(stream[indexStream]) );
-	
 	if (fp != stdin)
 		fclose(fp);
-
-	if (*hostFound[indexStream^1] < 0) {
-		totReadPsw += numReadPassword[indexStream];
-		BITCRACKER_CUDA_CHECK( cudaEventElapsedTime(&elapsedTime, start[indexStream], stop[indexStream]) );
-		printf("CUDA Kernel execution:\n\tStream %d\n\tEffective number psw: %d\n\tPasswords Range:\n\t\t%s\n\t\t.....\n\t\t%s\n\tTime: %f sec\n\tPasswords x second: %8.2f pw/sec\n", 
-			indexStream, 
-			numReadPassword[indexStream], 
-			(char *)hostPassword[indexStream], 
-			(char *)(hostPassword[indexStream]+((numReadPassword[indexStream]-1)*PSW_CHAR_SIZE)), 
-			(elapsedTime/1000.0), numReadPassword[indexStream]/(elapsedTime/1000.0));
-
-
-
-		match=check_match(indexStream);
-	}
 
 	if(match==1)
 		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %d\nPassword found: %s\n================================================\n\n", totReadPsw, outPsw);
 	else
 		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %d\nPassword not found!\n================================================\n\n", totReadPsw);
 
-	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_password0) );
-	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_password1) );
-
-	BITCRACKER_CUDA_CHECK( cudaFreeHost(hostPassword[0]) );
-	BITCRACKER_CUDA_CHECK( cudaFreeHost(hostPassword[1]) );
-	BITCRACKER_CUDA_CHECK( cudaFree(devicePasswordInt[0]) );
-	BITCRACKER_CUDA_CHECK( cudaFree(devicePasswordInt[1]) );
-	BITCRACKER_CUDA_CHECK( cudaFree(deviceFound[0]) );
-	BITCRACKER_CUDA_CHECK( cudaFree(deviceFound[1]) );
-	BITCRACKER_CUDA_CHECK( cudaStreamDestroy(stream[0]) );
-	BITCRACKER_CUDA_CHECK( cudaStreamDestroy(stream[1]) );
+	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_password) );
+	BITCRACKER_CUDA_CHECK( cudaFreeHost(hostPassword) );
+	BITCRACKER_CUDA_CHECK( cudaFree(devicePasswordInt) );
+	BITCRACKER_CUDA_CHECK( cudaFree(deviceFound) );
+	BITCRACKER_CUDA_CHECK( cudaStreamDestroy(stream) );
 	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_texture) );
 
 	return NULL;
@@ -289,7 +242,7 @@ char *cuda_attack(
 
 
 #define END_STRING 0x80 //0xFF
-__global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsigned char * vmkKey, 
+__global__ void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkKey, 
 	unsigned char * IV, int strict_check, int v0, int v1, int v2, int v3,
 	uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method
 	)
@@ -331,44 +284,22 @@ __global__ void decrypt_vmk(int numStream, int tot_psw_kernel, int *found, unsig
 //----------------------------------------------------- FIRST HASH ------------------------------------------------
 		indexW=(gIndex*PSW_INT_SIZE);
 		//redo=0;
-		if(numStream == 0)
-		{
-			schedule0 = (uint32_t) (tex1Dfetch(w_password0, (indexW+0)));
-			schedule1 = (uint32_t) (tex1Dfetch(w_password0, (indexW+1)));
-			schedule2 = (uint32_t) (tex1Dfetch(w_password0, (indexW+2)));
-			schedule3 = (uint32_t) (tex1Dfetch(w_password0, (indexW+3)));
-			schedule4 = (uint32_t) (tex1Dfetch(w_password0, (indexW+4)));
-			schedule5 = (uint32_t) (tex1Dfetch(w_password0, (indexW+5)));
-			schedule6 = (uint32_t) (tex1Dfetch(w_password0, (indexW+6)));
-			schedule7 = (uint32_t) (tex1Dfetch(w_password0, (indexW+7)));
-			schedule8 = (uint32_t) (tex1Dfetch(w_password0, (indexW+8)));
-			schedule9 = (uint32_t) (tex1Dfetch(w_password0, (indexW+9)));
-			schedule10 = (uint32_t) (tex1Dfetch(w_password0, (indexW+10)));
-			schedule11 = (uint32_t) (tex1Dfetch(w_password0, (indexW+11)));
-			schedule12 = (uint32_t) (tex1Dfetch(w_password0, (indexW+12)));
-			schedule13 = (uint32_t) (tex1Dfetch(w_password0, (indexW+13)));
-			schedule14 = (uint32_t) (tex1Dfetch(w_password0, (indexW+14)));
-			schedule15 = (uint32_t) (tex1Dfetch(w_password0, (indexW+15)));
-		}
-		else
-		{
-			schedule0 = (uint32_t) (tex1Dfetch(w_password1, (indexW+0)));
-			schedule1 = (uint32_t) (tex1Dfetch(w_password1, (indexW+1)));
-			schedule2 = (uint32_t) (tex1Dfetch(w_password1, (indexW+2)));
-			schedule3 = (uint32_t) (tex1Dfetch(w_password1, (indexW+3)));
-			schedule4 = (uint32_t) (tex1Dfetch(w_password1, (indexW+4)));
-			schedule5 = (uint32_t) (tex1Dfetch(w_password1, (indexW+5)));
-			schedule6 = (uint32_t) (tex1Dfetch(w_password1, (indexW+6)));
-			schedule7 = (uint32_t) (tex1Dfetch(w_password1, (indexW+7)));
-			schedule8 = (uint32_t) (tex1Dfetch(w_password1, (indexW+8)));
-			schedule9 = (uint32_t) (tex1Dfetch(w_password1, (indexW+9)));
-			schedule10 = (uint32_t) (tex1Dfetch(w_password1, (indexW+10)));
-			schedule11 = (uint32_t) (tex1Dfetch(w_password1, (indexW+11)));
-			schedule12 = (uint32_t) (tex1Dfetch(w_password1, (indexW+12)));
-			schedule13 = (uint32_t) (tex1Dfetch(w_password1, (indexW+13)));
-			schedule14 = (uint32_t) (tex1Dfetch(w_password1, (indexW+14)));
-			schedule15 = (uint32_t) (tex1Dfetch(w_password1, (indexW+15)));
-		}
+		schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
+		schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
+		schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
+		schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+3)));
+		schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+4)));
+		schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+5)));
+		schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+6)));
+		schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+7)));
+		schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+8)));
+		schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+9)));
+		schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+10)));
+		schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
+		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
+		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
+		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
+		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
 
 		ALL_SCHEDULE_LAST16()
 		ALL_ROUND_B1_1()
@@ -1206,7 +1137,7 @@ __device__ void encrypt(
 }
 
 __global__ void decrypt_vmk_with_mac(
-					int numStream, int tot_psw_kernel, int *found, 
+					int tot_psw_kernel, int *found, 
 					unsigned char * vmkKey, unsigned char * vmkIV,
 					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
 					int v0, int v1, int v2, int v3,
@@ -1249,44 +1180,22 @@ __global__ void decrypt_vmk_with_mac(
 
 //----------------------------------------------------- FIRST HASH ------------------------------------------------
 		indexW=(gIndex*PSW_INT_SIZE);
-		if(numStream == 0)
-		{
-			schedule0 = (uint32_t) (tex1Dfetch(w_password0, (indexW+0)));
-			schedule1 = (uint32_t) (tex1Dfetch(w_password0, (indexW+1)));
-			schedule2 = (uint32_t) (tex1Dfetch(w_password0, (indexW+2)));
-			schedule3 = (uint32_t) (tex1Dfetch(w_password0, (indexW+3)));
-			schedule4 = (uint32_t) (tex1Dfetch(w_password0, (indexW+4)));
-			schedule5 = (uint32_t) (tex1Dfetch(w_password0, (indexW+5)));
-			schedule6 = (uint32_t) (tex1Dfetch(w_password0, (indexW+6)));
-			schedule7 = (uint32_t) (tex1Dfetch(w_password0, (indexW+7)));
-			schedule8 = (uint32_t) (tex1Dfetch(w_password0, (indexW+8)));
-			schedule9 = (uint32_t) (tex1Dfetch(w_password0, (indexW+9)));
-			schedule10 = (uint32_t) (tex1Dfetch(w_password0, (indexW+10)));
-			schedule11 = (uint32_t) (tex1Dfetch(w_password0, (indexW+11)));
-			schedule12 = (uint32_t) (tex1Dfetch(w_password0, (indexW+12)));
-			schedule13 = (uint32_t) (tex1Dfetch(w_password0, (indexW+13)));
-			schedule14 = (uint32_t) (tex1Dfetch(w_password0, (indexW+14)));
-			schedule15 = (uint32_t) (tex1Dfetch(w_password0, (indexW+15)));
-		}
-		else
-		{
-			schedule0 = (uint32_t) (tex1Dfetch(w_password1, (indexW+0)));
-			schedule1 = (uint32_t) (tex1Dfetch(w_password1, (indexW+1)));
-			schedule2 = (uint32_t) (tex1Dfetch(w_password1, (indexW+2)));
-			schedule3 = (uint32_t) (tex1Dfetch(w_password1, (indexW+3)));
-			schedule4 = (uint32_t) (tex1Dfetch(w_password1, (indexW+4)));
-			schedule5 = (uint32_t) (tex1Dfetch(w_password1, (indexW+5)));
-			schedule6 = (uint32_t) (tex1Dfetch(w_password1, (indexW+6)));
-			schedule7 = (uint32_t) (tex1Dfetch(w_password1, (indexW+7)));
-			schedule8 = (uint32_t) (tex1Dfetch(w_password1, (indexW+8)));
-			schedule9 = (uint32_t) (tex1Dfetch(w_password1, (indexW+9)));
-			schedule10 = (uint32_t) (tex1Dfetch(w_password1, (indexW+10)));
-			schedule11 = (uint32_t) (tex1Dfetch(w_password1, (indexW+11)));
-			schedule12 = (uint32_t) (tex1Dfetch(w_password1, (indexW+12)));
-			schedule13 = (uint32_t) (tex1Dfetch(w_password1, (indexW+13)));
-			schedule14 = (uint32_t) (tex1Dfetch(w_password1, (indexW+14)));
-			schedule15 = (uint32_t) (tex1Dfetch(w_password1, (indexW+15)));
-		}
+		schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
+		schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
+		schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
+		schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+3)));
+		schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+4)));
+		schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+5)));
+		schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+6)));
+		schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+7)));
+		schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+8)));
+		schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+9)));
+		schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+10)));
+		schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
+		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
+		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
+		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
+		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
 
 		ALL_SCHEDULE_LAST16()
 		ALL_ROUND_B1_1()
