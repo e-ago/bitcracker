@@ -42,6 +42,7 @@ Use the *build.sh* script to build 3 executables:
 - bitcracker_opencl
 
 The script stores the executables in the *build* local directory.
+You need to configure the src_CUDA/Makefile and src_OpenCL/Makefile according to your CUDA/GPU/Platform type or version.
 
 #### Step 1: Extract the image
 
