@@ -1,0 +1,4 @@
+*.cu linguist-language=CUDA
+*.cl linguist-language=OpenCL
+*.c linguist-language=C
+
