@@ -52,7 +52,7 @@ char *cuda_attack(
 	int gridBlocks)
 {
 	FILE		*fp;
-	int		indexStream, numReadPassword, match=0, done=0, w_blocks_h[4], cudaThreads=CUDA_THREADS_NO_MAC;
+	int		numReadPassword, match=0, done=0, w_blocks_h[4], cudaThreads=CUDA_THREADS_NO_MAC;
 	long long	totReadPsw = 0;
 	uint8_t		vmkIV[IV_SIZE], *d_vmkIV, *d_vmk;
 	uint8_t		macIV[IV_SIZE], *d_macIV, *d_mac;
@@ -181,7 +181,6 @@ char *cuda_attack(
 	uint32_t s3 =  ((uint32_t)salt[12])  << 24 | ((uint32_t)salt[13])  << 16 | ((uint32_t)salt[14])  <<  8 | ((uint32_t)salt[15]);
 
 	while(!done) {
-		indexStream ^= 1;
 		numReadPassword = readFilePassword(&hostPasswordInt, &hostPassword, tot_psw, fp);
 		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(devicePasswordInt, hostPasswordInt, tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaMemcpyHostToDevice, stream) );
 		BITCRACKER_CUDA_CHECK( cudaEventRecord(start, stream) );
@@ -319,47 +318,23 @@ __global__ void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkK
 		if(method == MODE_USER_PASS)
 		{
 			/*
-			if(numStream == 0 && (uint32_t) (tex1Dfetch(w_password0, (indexW+31))) != 0)
-			{
-				schedule0 = (uint32_t) (tex1Dfetch(w_password0, (indexW+16)));
-				schedule1 = (uint32_t) (tex1Dfetch(w_password0, (indexW+17)));
-				schedule2 = (uint32_t) (tex1Dfetch(w_password0, (indexW+18)));
-				schedule3 = (uint32_t) (tex1Dfetch(w_password0, (indexW+19)));
-				schedule4 = (uint32_t) (tex1Dfetch(w_password0, (indexW+20)));
-				schedule5 = (uint32_t) (tex1Dfetch(w_password0, (indexW+21)));
-				schedule6 = (uint32_t) (tex1Dfetch(w_password0, (indexW+22)));
-				schedule7 = (uint32_t) (tex1Dfetch(w_password0, (indexW+23)));
-				schedule8 = (uint32_t) (tex1Dfetch(w_password0, (indexW+24)));
-				schedule9 = (uint32_t) (tex1Dfetch(w_password0, (indexW+25)));
-				schedule10 = (uint32_t) (tex1Dfetch(w_password0, (indexW+26)));
-				schedule11 = (uint32_t) (tex1Dfetch(w_password0, (indexW+27)));
-				schedule12 = (uint32_t) (tex1Dfetch(w_password0, (indexW+28)));
-				schedule13 = (uint32_t) (tex1Dfetch(w_password0, (indexW+29)));
-				schedule14 = (uint32_t) (tex1Dfetch(w_password0, (indexW+30)));
-				schedule15 = (uint32_t) (tex1Dfetch(w_password0, (indexW+31)));
-				redo=1;
-			}
-			
-			if(numStream == 1 && (uint32_t) (tex1Dfetch(w_password1, (indexW+31))) != 0) 
-			{
-				schedule0 = (uint32_t) (tex1Dfetch(w_password1, (indexW+16)));
-				schedule1 = (uint32_t) (tex1Dfetch(w_password1, (indexW+17)));
-				schedule2 = (uint32_t) (tex1Dfetch(w_password1, (indexW+18)));
-				schedule3 = (uint32_t) (tex1Dfetch(w_password1, (indexW+19)));
-				schedule4 = (uint32_t) (tex1Dfetch(w_password1, (indexW+20)));
-				schedule5 = (uint32_t) (tex1Dfetch(w_password1, (indexW+21)));
-				schedule6 = (uint32_t) (tex1Dfetch(w_password1, (indexW+22)));
-				schedule7 = (uint32_t) (tex1Dfetch(w_password1, (indexW+23)));
-				schedule8 = (uint32_t) (tex1Dfetch(w_password1, (indexW+24)));
-				schedule9 = (uint32_t) (tex1Dfetch(w_password1, (indexW+25)));
-				schedule10 = (uint32_t) (tex1Dfetch(w_password1, (indexW+26)));
-				schedule11 = (uint32_t) (tex1Dfetch(w_password1, (indexW+27)));
-				schedule12 = (uint32_t) (tex1Dfetch(w_password1, (indexW+28)));
-				schedule13 = (uint32_t) (tex1Dfetch(w_password1, (indexW+29)));
-				schedule14 = (uint32_t) (tex1Dfetch(w_password1, (indexW+30)));
-				schedule15 = (uint32_t) (tex1Dfetch(w_password1, (indexW+31)));
-				redo=1;
-			}
+			schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
+			schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
+			schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
+			schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+3)));
+			schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+4)));
+			schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+5)));
+			schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+6)));
+			schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+7)));
+			schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+8)));
+			schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+9)));
+			schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+10)));
+			schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
+			schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
+			schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
+			schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
+			schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
+
 
 			if(redo == 1)
 			{
