@@ -42,7 +42,17 @@ Use the *build.sh* script to build 3 executables:
 - bitcracker_opencl
 
 The script stores the executables in the *build* local directory.
+
 You need to configure the src_CUDA/Makefile and src_OpenCL/Makefile according to your CUDA/GPU/Platform type or version.
+To compile the bitcracker_cuda, please use the following correspondence table:
+
+| GPU Architecture | Suggested CUDA |         NVCC Gencode       |
+| ---------------- | -------------- | -------------------------- |
+| Kepler           | CUDA 7.5       | arch=compute_35,code=sm_35 |
+| Maxwell          | CUDA 8.0       | arch=compute_52,code=sm_52 |
+| Pascal           | CUDA 9.0       | arch=compute_60,code=sm_60 |
+| Volta            | CUDA 9.0       | arch=compute_70,code=sm_70 |
+
 
 #### Step 1: Extract the image
 
