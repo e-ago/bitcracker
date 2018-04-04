@@ -182,6 +182,7 @@ char *cuda_attack(
 
 	while(!done) {
 		numReadPassword = readFilePassword(&hostPasswordInt, &hostPassword, tot_psw, fp);
+		if(numReadPassword <= 0) { done=1; continue; }
 		BITCRACKER_CUDA_CHECK( cudaMemcpyAsync(devicePasswordInt, hostPasswordInt, tot_psw * PSW_INT_SIZE * sizeof(uint32_t), cudaMemcpyHostToDevice, stream) );
 		BITCRACKER_CUDA_CHECK( cudaEventRecord(start, stream) );
 		if(mac_comparison == 1)
@@ -218,7 +219,7 @@ char *cuda_attack(
 		
 		match=check_match();
 		if(match) done=1;
-    		if(!feof(fp)) done=1;
+    		if(feof(fp)) done=1;
 	}
 
 	if (fp != stdin)
