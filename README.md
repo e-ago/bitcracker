@@ -4,6 +4,8 @@ BitCracker is the first open source password cracking tool for memory units (Har
 BitCracker is a mono-GPU algorithm (implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl) ) which performs a dictionary attack against memory units encrypted with BitLocker.
 For all the authentication (encryption) methods offered by BitLocker (i.e. User Password, Smart Card, TPM, TPM+PIN, etc..) you can always use the BitCracker Recovery Password attack (-r option). As additional feature, if your device has been encrypted with an User Password (BitLocker-To-Go feature) you can use the BitCracker User Password attack (-u option). 
 
+**CRITICAL ERROR FIXED IN COMMITS 7b2a6b6 (CUDA version) and 5f09d7f (OpenCL version): bad loop termination! Please re-run your tests.**
+
 ## User Password Attack
 
 With this authentication method, the user can choose to encrypt a memory device by means of a password.
