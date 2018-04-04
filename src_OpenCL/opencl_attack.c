@@ -292,7 +292,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks,
     while(!feof(fp_file_passwords))
     {
         numReadPassword = readFilePassword(&hostPasswordInt, &hostPassword, tot_psw, fp_file_passwords);
-
+        if(numReadPassword <= 0) break;
         ciErr1 = clEnqueueWriteBuffer(cqCommandQueue, devicePassword, CL_TRUE, 0, tot_psw*PSW_INT_SIZE*sizeof(unsigned int), hostPasswordInt, 0, NULL, NULL);
         CL_ERROR(ciErr1);
 
@@ -393,7 +393,7 @@ char *opencl_attack(char *dname, unsigned int * w_blocks,
             match=check_match();
             break;
         }
-
+        
         iter++;
     }
 
