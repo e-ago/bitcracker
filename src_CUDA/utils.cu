@@ -232,9 +232,16 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 	        return -1;
 
 	while(fgets(tmp, PSW_CHAR_SIZE, fp)) {
-		size = (strlen(tmp)-1);
 		j=0; k=0; count=0;
-		if(tmp[0] == '\n' || size < MIN_INPUT_PASSWORD_LEN || size > SECOND_LENGHT) continue;
+		size = (strlen(tmp)-1);
+		
+		//User passwords longer than 27 characters not supported yet
+		if(attack_mode == MODE_USER_PASS && size > FIRST_LENGHT)
+			continue;
+		
+		if(tmp[0] == '\n' || size < MIN_INPUT_PASSWORD_LEN || size > SECOND_LENGHT)
+			continue;
+
 		memcpy(( (*buf_c)+(i*PSW_CHAR_SIZE)), tmp, size);
 
 		if(attack_mode == MODE_RECV_PASS) //Recovery password
