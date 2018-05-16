@@ -62,7 +62,8 @@ char *opencl_attack(char *dname, unsigned int * w_blocks,
     size_t              szGlobalWorkSize;   
     size_t              szLocalWorkSize;    
 
-    int                 numReadPassword, tot_psw, ret, totReadPsw=0; //passwordBufferSize
+    int                 numReadPassword, tot_psw, ret;
+    long long int       totReadPsw=0; //passwordBufferSize
     FILE                *fp_kernel, *fp_file_passwords;
     //Really ugly...
     char                fileNameAttack[] = "./src_OpenCL/kernel_attack.cl";
@@ -398,12 +399,12 @@ char *opencl_attack(char *dname, unsigned int * w_blocks,
     }
 
     if(match==1)
-        printf("\n\n================================================\nOpenCL attack completed\nPasswords evaluated: %d\nPassword found: [%s]\n================================================\n\n", totReadPsw, outPsw);
+        printf("\n\n================================================\nOpenCL attack completed\nPasswords evaluated: %lld\nPassword found: [%s]\n================================================\n\n", totReadPsw, outPsw);
     else
-        printf("\n\n================================================\nOpenCL attack completed\nPasswords evaluated: %d\nPassword not found!\n================================================\n\n", totReadPsw);
+        printf("\n\n================================================\nOpenCL attack completed\nPasswords evaluated: %lld\nPassword not found!\n================================================\n\n", totReadPsw);
 
 out1:
-    printf("\nTot passwords evaluated: %d\n", totReadPsw);
+    printf("\nTot passwords evaluated: %lld\n", totReadPsw);
 
     /* Display result */
     if (fp_file_passwords != stdin)

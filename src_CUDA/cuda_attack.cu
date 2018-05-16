@@ -215,7 +215,7 @@ char *cuda_attack(
 						numReadPassword, 
 						(char *)hostPassword, 
 						(char *)(hostPassword+((numReadPassword-1)*PSW_CHAR_SIZE)), 
-						cudaThreads, gridBlocks, (elapsedTime/1000.0), numReadPassword/(elapsedTime/1000.0));
+						(elapsedTime/1000.0), numReadPassword/(elapsedTime/1000.0));
 		
 		match=check_match();
 		if(match) done=1;
@@ -226,9 +226,9 @@ char *cuda_attack(
 		fclose(fp);
 
 	if(match==1)
-		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %d\nPassword found: %s\n================================================\n\n", totReadPsw, outPsw);
+		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %lld\nPassword found: %s\n================================================\n\n", totReadPsw, outPsw);
 	else
-		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %d\nPassword not found!\n================================================\n\n", totReadPsw);
+		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %lld\nPassword not found!\n================================================\n\n", totReadPsw);
 
 	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_password) );
 	BITCRACKER_CUDA_CHECK( cudaFreeHost(hostPassword) );
