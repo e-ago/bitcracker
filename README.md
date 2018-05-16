@@ -185,7 +185,8 @@ Here we report the best BitCracker performance in case of fast attack (default) 
 | GFT          | GeForce Titan   | Kepler  | 3.5 | 14   | 835    | 7.0  |
 | GTK80        | Tesla K80       | Kepler  | 3.5 | 13   | 875    | 7.5  |
 | GFTX         | GeForce Titan X | Maxwell | 5.2 | 24   | 1001   | 7.5  |
-| GTP100       | Telsa P100      | Pascal  | 6.1 | 56   | 1328   | 8.0  |
+| GTP100       | Tesla P100      | Pascal  | 6.1 | 56   | 1328   | 8.0  |
+| GTV100       | Tesla V100      | Volta   | 7.0 | 80   | 1290   | 9.0  |
 | AMDM         | Radeon Malta    | -       | -   | -    | -      | -    |
 
 Performance:
@@ -196,6 +197,7 @@ Performance:
 | CUDA     | GTK80  | 8   | 14 | 114.688            | 370           | 775 MH/s   |
 | CUDA     | GFTX   | 8   | 24 | 106.608            | 933           | 1.957 MH/s |
 | CUDA     | GTP100 | 1   | 56 | 57.344             | 1.418         | 2.973 MH/s |
+| CUDA     | GTV100 | 1   | 80 | 81.920             | 3.252         | 6.820 MH/s |
 | OpenCL   | AMDM   | 32  | 64 | 524.288            | 241           | 505 MH/s   |
 | OpenCL   | GFTX   | 8   | 24 | 196.608            | 884           | 1.853 MH/s |
 
