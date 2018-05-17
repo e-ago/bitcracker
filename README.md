@@ -205,8 +205,9 @@ N.B. Each password requires about 2.097.152 SHA-256
 
 ## John The Ripper
 
-We released BitCracker as the [OpenCL-BitLocker](http://openwall.info/wiki/john/OpenCL-BitLocker) format in [John The Ripper](https://github.com/magnumripper/JohnTheRipper).
-The hash generated with *bitcracker_hash* (see *How To* section) are fully compatible with the John format.
+We released BitCracker as the [OpenCL-BitLocker](http://openwall.info/wiki/john/OpenCL-BitLocker) format in [John The Ripper](https://github.com/magnumripper/JohnTheRipper) (`--format=bitlocker-opencl`).
+The hash generated with *bitcracker_hash* (see *How To* section) are fully compatible with the John format.<br>
+On the GTV100, john reaches 3150p/s.
 
 ## Changelog
 
