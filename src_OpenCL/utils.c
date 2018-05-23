@@ -219,6 +219,8 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 
 		return BIT_FAILURE;
 }
+
+static int print_once=0;
 int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 	int i=0, j=0, k=0, size=0, count=0;
 	char tmp[PSW_CHAR_SIZE], tmp2[PSW_CHAR_SIZE], *p;
@@ -232,8 +234,11 @@ int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 		size = (strlen(tmp)-1);
 		
 		//User passwords longer than 27 characters not supported yet
-		if(attack_mode == MODE_USER_PASS && size > FIRST_LENGHT)
-			continue;
+		if(attack_mode == MODE_USER_PASS && ( size > FIRST_LENGHT || size < MIN_INPUT_PASSWORD_LEN) && print_once == 0)
+		{
+			fprintf(stderr, "WARNING: During USER PASSWORD attack, only passwords between 8 and 27 character are considered. Passwords like %s will be ignored.\n", tmp);
+			print_once=1;
+		}
 
 		if(tmp[0] == '\n' || size < MIN_INPUT_PASSWORD_LEN || size > SECOND_LENGHT)
 			continue;
