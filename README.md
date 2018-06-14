@@ -158,7 +158,7 @@ The Recovery Password attack has been tested only with devices encrypted using t
 
 BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to create your own input dictionary.
 
-Currently, the User Password attack allows input passwords with a length between 8 and 27 characters.
+Currently, the User Password attack allows input passwords with a length between 8 and 55 characters.
 
 ## False Positives
 
@@ -211,10 +211,11 @@ On the GTV100 password rate is about 3150p/s. JtR team developed the CPU version
 
 ## Changelog
 
+06/14 : User Password attack mode now supports passwords length up to 55
+
 #### Next Release
 
 * Provide a dictionary with all the possible Recovery Passwords (they are not randomly generated!)
-* In case of User Password attack mode, increase the maximum size allowed for an input password (currently the maximum is 27 characters)
 * Provide a multi-GPU implementation
 
 ## References, credits and contacts
