@@ -1133,6 +1133,7 @@ __global__ void decrypt_vmk_with_mac(
     	int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
 	int index_generic;
 	int indexW=(gIndex*PSW_INT_SIZE);
+	int8_t redo=0;
 
 	while(gIndex < tot_psw_kernel)
 	{
@@ -1157,6 +1158,7 @@ __global__ void decrypt_vmk_with_mac(
 
 //----------------------------------------------------- FIRST HASH ------------------------------------------------
 		indexW=(gIndex*PSW_INT_SIZE);
+		redo=0;
 		schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
 		schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
 		schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
@@ -1172,6 +1174,9 @@ __global__ void decrypt_vmk_with_mac(
 		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
 		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
 		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
+		//Input password is shorter than FIRST_LENGHT
+		if(schedule14 == 0xFFFFFFFF) schedule14=0;
+		else if(method == MODE_USER_PASS) redo=1;
 		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
 
 		ALL_SCHEDULE_LAST16()
@@ -1191,6 +1196,50 @@ __global__ void decrypt_vmk_with_mac(
 		//User password only
 		if(method == MODE_USER_PASS)
 		{
+			if(redo == 1)
+			{
+				schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+16)));
+				schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+17)));
+				schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+18)));
+				schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+19)));
+				schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+20)));
+				schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+21)));
+				schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+22)));
+				schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+23)));
+				schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+24)));
+				schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+25)));
+				schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+26)));
+				schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+27)));
+				schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+28)));
+				schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+29)));
+				schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+30)));
+				schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+31)));
+
+				a = first_hash0;
+				b = first_hash1;
+				c = first_hash2;
+				d = first_hash3;
+				e = first_hash4;
+				f = first_hash5;
+				g = first_hash6;
+				h = first_hash7;
+
+				ALL_SCHEDULE_LAST16()
+				ALL_ROUND_B1_1()
+				ALL_SCHEDULE32()
+				ALL_ROUND_B1_2()
+			
+				first_hash0 += a;
+				first_hash1 += b;
+				first_hash2 += c;
+				first_hash3 += d;
+				first_hash4 += e;
+				first_hash5 += f;
+				first_hash6 += g;
+				first_hash7 += h;
+
+			}
+
 //----------------------------------------------------- SECOND HASH ------------------------------------------------
 			schedule0 = first_hash0;
 			schedule1 = first_hash1;
