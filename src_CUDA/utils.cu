@@ -224,7 +224,7 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 }
 
 static int print_once=0;
-int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
+int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) {
 	int i=0, j=0, k=0, size=0, count=0;
 	char tmp[PSW_CHAR_SIZE], tmp2[PSW_CHAR_SIZE], *p;
 	memset(tmp, 0, PSW_CHAR_SIZE);
