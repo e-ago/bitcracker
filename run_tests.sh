@@ -31,12 +31,18 @@ mv test_hash/hash_recv_pass.txt test_hash/imgWin10NotCompat_recovery_password.tx
 printf "\n\n"
 
 
+#Image encrypted with Windows 10 Enteprise using BitLocker Not Compatible Mode and a very long password
+./build/bitcracker_hash -o test_hash -i ./Images/imgWin10NotCompatLongPsw.vhd
+mv test_hash/hash_user_pass.txt test_hash/imgWin10NotCompatLong_user_password.txt
+mv test_hash/hash_recv_pass.txt test_hash/imgWin10NotCompatLong_recovery_password.txt
+printf "\n\n"
+
 printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
 #Print help
 ./build/bitcracker_cuda -h
 
+set -x
 #Windows 8.1
-
 ./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 #Same test with MAC verification
 ./build/bitcracker_cuda -f ./test_hash/imgWin8_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -m -u
@@ -44,14 +50,17 @@ printf "\n\n************ Testing BitCracker CUDA version ************\n\n"
 #Windows 7
 ./build/bitcracker_cuda -f ./test_hash/imgWin7_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 
-#Windows 10 Compatbile Mode
+#Windows 10 Compatible Mode
 ./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 ./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r
 #Same test with MAC verification
 ./build/bitcracker_cuda -f ./test_hash/imgWin10Compat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r -m
 
-#Windows 10 Not Compatbile Mode
+#Windows 10 Not Compatible Mode
 ./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
 ./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r
 #Same test with MAC verification
 ./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompat_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r -m
+
+#Windows 10 Not Compatible Mode long password
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatLong_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u

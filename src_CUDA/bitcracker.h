@@ -76,7 +76,7 @@
 #define MAX_INPUT_PASSWORD_LEN 27
 
 #define PSW_CHAR_SIZE 64
-#define PSW_INT_SIZE 16 //32 for double passwords
+#define PSW_INT_SIZE 32 //it was 16
 
 #define FIRST_LENGHT 27
 #define SECOND_LENGHT 55

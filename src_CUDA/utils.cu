@@ -237,9 +237,9 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 		size = (strlen(tmp)-1);
 		
 		//User passwords longer than 27 characters not supported yet
-		if(attack_mode == MODE_USER_PASS && ( size > FIRST_LENGHT || size < MIN_INPUT_PASSWORD_LEN) && print_once == 0)
+		if(attack_mode == MODE_USER_PASS && ( size > SECOND_LENGHT || size < MIN_INPUT_PASSWORD_LEN) && print_once == 0)
 		{
-			fprintf(stderr, "WARNING: During USER PASSWORD attack, only passwords between 8 and 27 character are considered. Passwords like %s will be ignored.\n", tmp);
+			fprintf(stderr, "WARNING: During USER PASSWORD attack, only passwords between %d and %d character are considered. Passwords like %s will be ignored.\n", MIN_INPUT_PASSWORD_LEN, SECOND_LENGHT, tmp);
 			print_once=1;
 		}
 		
@@ -318,15 +318,11 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 
 			if(size <= FIRST_LENGHT)
 			{
-				((*buf_i)+(i*PSW_INT_SIZE)+14)[0] = 0;
+				((*buf_i)+(i*PSW_INT_SIZE)+14)[0] = -1;
 				((*buf_i)+(i*PSW_INT_SIZE)+15)[0] = ((uint8_t)(((size*2) << 3) >> 8)) << 8 | ((uint8_t)((size*2) << 3));
 			}
 			else
 			{
-				// Next release!
-				fprintf(stderr, "ERROR!\n");
-				exit(EXIT_FAILURE);
-				
 				((*buf_i)+(i*PSW_INT_SIZE)+30)[0] = 0;
 				((*buf_i)+(i*PSW_INT_SIZE)+31)[0] = ((uint8_t)(((size*2) << 3) >> 8)) << 8 | ((uint8_t)((size*2) << 3));
 			}
