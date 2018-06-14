@@ -132,7 +132,7 @@ __global__ __launch_bounds__(1024,1) void decrypt_vmk_with_mac(
 /* ++++++++++++++++++++++++++++++++++++++ HOST FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 int w_block_precomputed(unsigned char * salt, uint32_t * w_blocks_d);
 //int readFilePassword(char ** buf, int maxNumPsw, FILE *fp);
-int readFilePassword(int ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp);
+int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp);
 //int readFileRecovery(char ** buf, int maxNumPsw, FILE *fp);
 int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	unsigned char ** vmk, unsigned char ** mac);
 char *strtokm(char *s1, const char *delims);

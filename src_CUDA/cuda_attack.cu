@@ -22,11 +22,11 @@
 #include "bitcracker.h"
 
 texture<uint32_t>	w_texture;
-texture<int>		w_password;
+texture<uint32_t>	w_password;
 
 int			*deviceFound, *hostFound;
 char			*hostPassword;
-int			*hostPasswordInt, *devicePasswordInt;
+uint32_t		*hostPasswordInt, *devicePasswordInt;
 unsigned char		outPsw[MAX_INPUT_PASSWORD_LEN+1];
 int			outIndexPsw=0;
 
@@ -298,9 +298,9 @@ __global__ void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkK
 		schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
 		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
 		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
-		schedule14 = (int) (tex1Dfetch(w_password, (indexW+14)));
+		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
 		//Input password is shorter than FIRST_LENGHT
-		if(schedule14 == -1) schedule14=0;
+		if(schedule14 == 0xFFFFFFFF) schedule14=0;
 		else if(method == MODE_USER_PASS) redo=1;
 		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
 
