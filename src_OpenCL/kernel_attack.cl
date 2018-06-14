@@ -197,7 +197,7 @@ void encrypt(
 #define MODE_RECV_PASS  2
 
 #define PSW_CHAR_SIZE 64
-#define PSW_INT_SIZE 16 //32 for double passwords
+#define PSW_INT_SIZE 32 //16
 #define FIRST_LENGHT 27
 #define SECOND_LENGHT 55
 
@@ -505,6 +505,7 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global int *w_password
         int gIndex = (int)get_global_id(0);
 	int index_generic;
 	int indexW=(gIndex*PSW_INT_SIZE);
+	int redo=0;
 
 	while(gIndex < numPassword)
 	{
@@ -528,7 +529,7 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global int *w_password
 		h = 0x5BE0CD19;
 
                 indexW=(gIndex*PSW_INT_SIZE);
-                
+                redo=0;
                 //--------------------- SCHEDULE -------------------
                 schedule0 = (unsigned int) (w_password[indexW+0]);
                 schedule1 = (unsigned int) (w_password[indexW+1]);
@@ -545,6 +546,12 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global int *w_password
                 schedule12 = (unsigned int) (w_password[indexW+12]);
                 schedule13 = (unsigned int) (w_password[indexW+13]);
                 schedule14 = (unsigned int) (w_password[indexW+14]);
+                #if ATTACK_MODE < 2
+			//Input password is shorter than FIRST_LENGHT
+			if(schedule14 == 0xFFFFFFFF) schedule14=0;
+			else redo=1;
+		#endif
+
                 schedule15 = (unsigned int) (w_password[indexW+15]);
                 //-----------------------------------------------         
 
@@ -629,6 +636,113 @@ __kernel void opencl_bitcracker_attack(int numPassword, __global int *w_password
 
 //User password only
 #if ATTACK_MODE < 2
+		if(redo == 1)
+		{
+			schedule0 = (unsigned int) (w_password[indexW+16]);
+			schedule1 = (unsigned int) (w_password[indexW+17]);
+			schedule2 = (unsigned int) (w_password[indexW+18]);
+			schedule3 = (unsigned int) (w_password[indexW+19]);
+			schedule4 = (unsigned int) (w_password[indexW+20]);
+			schedule5 = (unsigned int) (w_password[indexW+21]);
+			schedule6 = (unsigned int) (w_password[indexW+22]);
+			schedule7 = (unsigned int) (w_password[indexW+23]);
+			schedule8 = (unsigned int) (w_password[indexW+24]);
+			schedule9 = (unsigned int) (w_password[indexW+25]);
+			schedule10 = (unsigned int) (w_password[indexW+26]);
+			schedule11 = (unsigned int) (w_password[indexW+27]);
+			schedule12 = (unsigned int) (w_password[indexW+28]);
+			schedule13 = (unsigned int) (w_password[indexW+29]);
+			schedule14 = (unsigned int) (w_password[indexW+30]);
+			schedule15 = (unsigned int) (w_password[indexW+31]);
+
+			a = first_hash0;
+			b = first_hash1;
+			c = first_hash2;
+			d = first_hash3;
+			e = first_hash4;
+			f = first_hash5;
+			g = first_hash6;
+			h = first_hash7;
+
+			ALL_SCHEDULE_LAST16()
+
+			ROUND(a, b, c, d, e, f, g, h,  schedule0, 0x428A2F98)
+			ROUND(h, a, b, c, d, e, f, g,  schedule1, 0x71374491)
+			ROUND(g, h, a, b, c, d, e, f,  schedule2, 0xB5C0FBCF)
+			ROUND(f, g, h, a, b, c, d, e,  schedule3, 0xE9B5DBA5)
+			ROUND(e, f, g, h, a, b, c, d,  schedule4, 0x3956C25B)
+			ROUND(d, e, f, g, h, a, b, c,  schedule5, 0x59F111F1)
+			ROUND(c, d, e, f, g, h, a, b,  schedule6, 0x923F82A4)
+			ROUND(b, c, d, e, f, g, h, a,  schedule7, 0xAB1C5ED5)
+			ROUND(a, b, c, d, e, f, g, h,  schedule8, 0xD807AA98)
+			ROUND(h, a, b, c, d, e, f, g,  schedule9, 0x12835B01)
+			ROUND(g, h, a, b, c, d, e, f, schedule10, 0x243185BE)
+			ROUND(f, g, h, a, b, c, d, e, schedule11, 0x550C7DC3)
+			ROUND(e, f, g, h, a, b, c, d, schedule12, 0x72BE5D74)
+			ROUND(d, e, f, g, h, a, b, c, schedule13, 0x80DEB1FE)
+			ROUND(c, d, e, f, g, h, a, b, schedule14, 0x9BDC06A7)
+			ROUND(b, c, d, e, f, g, h, a, schedule15, 0xC19BF174)
+			ROUND(a, b, c, d, e, f, g, h, schedule16, 0xE49B69C1)
+			ROUND(h, a, b, c, d, e, f, g, schedule17, 0xEFBE4786)
+			ROUND(g, h, a, b, c, d, e, f, schedule18, 0x0FC19DC6)
+			ROUND(f, g, h, a, b, c, d, e, schedule19, 0x240CA1CC)
+			ROUND(e, f, g, h, a, b, c, d, schedule20, 0x2DE92C6F)
+			ROUND(d, e, f, g, h, a, b, c, schedule21, 0x4A7484AA)
+			ROUND(c, d, e, f, g, h, a, b, schedule22, 0x5CB0A9DC)
+			ROUND(b, c, d, e, f, g, h, a, schedule23, 0x76F988DA)
+			ROUND(a, b, c, d, e, f, g, h, schedule24, 0x983E5152)
+			ROUND(h, a, b, c, d, e, f, g, schedule25, 0xA831C66D)
+			ROUND(g, h, a, b, c, d, e, f, schedule26, 0xB00327C8)
+			ROUND(f, g, h, a, b, c, d, e, schedule27, 0xBF597FC7)
+			ROUND(e, f, g, h, a, b, c, d, schedule28, 0xC6E00BF3)
+			ROUND(d, e, f, g, h, a, b, c, schedule29, 0xD5A79147)
+			ROUND(c, d, e, f, g, h, a, b, schedule30, 0x06CA6351)
+			ROUND(b, c, d, e, f, g, h, a, schedule31, 0x14292967)
+
+			ALL_SCHEDULE32()
+
+			ROUND(a, b, c, d, e, f, g, h, schedule0, 0x27B70A85)
+			ROUND(h, a, b, c, d, e, f, g, schedule1, 0x2E1B2138)
+			ROUND(g, h, a, b, c, d, e, f, schedule2, 0x4D2C6DFC)
+			ROUND(f, g, h, a, b, c, d, e, schedule3, 0x53380D13)
+			ROUND(e, f, g, h, a, b, c, d, schedule4, 0x650A7354)
+			ROUND(d, e, f, g, h, a, b, c, schedule5, 0x766A0ABB)
+			ROUND(c, d, e, f, g, h, a, b, schedule6, 0x81C2C92E)
+			ROUND(b, c, d, e, f, g, h, a, schedule7, 0x92722C85)
+			ROUND(a, b, c, d, e, f, g, h, schedule8, 0xA2BFE8A1)
+			ROUND(h, a, b, c, d, e, f, g, schedule9, 0xA81A664B)
+			ROUND(g, h, a, b, c, d, e, f, schedule10, 0xC24B8B70)
+			ROUND(f, g, h, a, b, c, d, e, schedule11, 0xC76C51A3)
+			ROUND(e, f, g, h, a, b, c, d, schedule12, 0xD192E819)
+			ROUND(d, e, f, g, h, a, b, c, schedule13, 0xD6990624)
+			ROUND(c, d, e, f, g, h, a, b, schedule14, 0xF40E3585)
+			ROUND(b, c, d, e, f, g, h, a, schedule15, 0x106AA070)
+			ROUND(a, b, c, d, e, f, g, h, schedule16, 0x19A4C116)
+			ROUND(h, a, b, c, d, e, f, g, schedule17, 0x1E376C08)
+			ROUND(g, h, a, b, c, d, e, f, schedule18, 0x2748774C)
+			ROUND(f, g, h, a, b, c, d, e, schedule19, 0x34B0BCB5)
+			ROUND(e, f, g, h, a, b, c, d, schedule20, 0x391C0CB3)
+			ROUND(d, e, f, g, h, a, b, c, schedule21, 0x4ED8AA4A)
+			ROUND(c, d, e, f, g, h, a, b, schedule22, 0x5B9CCA4F)
+			ROUND(b, c, d, e, f, g, h, a, schedule23, 0x682E6FF3)
+			ROUND(a, b, c, d, e, f, g, h, schedule24, 0x748F82EE)
+			ROUND(h, a, b, c, d, e, f, g, schedule25, 0x78A5636F)
+			ROUND(g, h, a, b, c, d, e, f, schedule26, 0x84C87814)
+			ROUND(f, g, h, a, b, c, d, e, schedule27, 0x8CC70208)
+			ROUND(e, f, g, h, a, b, c, d, schedule28, 0x90BEFFFA)
+			ROUND(d, e, f, g, h, a, b, c, schedule29, 0xA4506CEB)
+			ROUND(c, d, e, f, g, h, a, b, schedule30, 0xBEF9A3F7)
+			ROUND(b, c, d, e, f, g, h, a, schedule31, 0xC67178F2)
+			
+			first_hash0 += a;
+			first_hash1 += b;
+			first_hash2 += c;
+			first_hash3 += d;
+			first_hash4 += e;
+			first_hash5 += f;
+			first_hash6 += g;
+			first_hash7 += h;
+		}
 //----------------------------------------------------- SECOND HASH ------------------------------------------------
 		schedule0 = first_hash0;
 		schedule1 = first_hash1;
@@ -1635,7 +1749,7 @@ __kernel void opencl_bitcracker_attack_mac(int numPassword, __global unsigned in
         int index_generic;
         int indexW=(gIndex*PSW_INT_SIZE);
         int curr_fetch=0;
-
+        int redo=0;
         while(gIndex < numPassword)
         {
                 first_hash0 = 0x6A09E667;
@@ -1658,7 +1772,7 @@ __kernel void opencl_bitcracker_attack_mac(int numPassword, __global unsigned in
                 h = 0x5BE0CD19;
 
                 indexW=(gIndex*PSW_INT_SIZE);
-
+                redo=0;
                 //--------------------- SCHEDULE -------------------
                 schedule0 = (unsigned int) (w_password[indexW+0]);
                 schedule1 = (unsigned int) (w_password[indexW+1]);
@@ -1675,7 +1789,12 @@ __kernel void opencl_bitcracker_attack_mac(int numPassword, __global unsigned in
                 schedule12 = (unsigned int) (w_password[indexW+12]);
                 schedule13 = (unsigned int) (w_password[indexW+13]);
                 schedule14 = (unsigned int) (w_password[indexW+14]);
-                schedule15 = (unsigned int) (w_password[indexW+15]);
+		#if ATTACK_MODE < 2
+			//Input password is shorter than FIRST_LENGHT
+			if(schedule14 == 0xFFFFFFFF) schedule14=0;
+			else redo=1;
+		#endif
+		schedule15 = (unsigned int) (w_password[indexW+15]);
                 //-----------------------------------------------         
 
                 ALL_SCHEDULE_LAST16()
@@ -1759,7 +1878,113 @@ __kernel void opencl_bitcracker_attack_mac(int numPassword, __global unsigned in
 
 //User password only
 #if ATTACK_MODE < 2
+                if(redo == 1)
+		{
+			schedule0 = (unsigned int) (w_password[indexW+16]);
+			schedule1 = (unsigned int) (w_password[indexW+17]);
+			schedule2 = (unsigned int) (w_password[indexW+18]);
+			schedule3 = (unsigned int) (w_password[indexW+19]);
+			schedule4 = (unsigned int) (w_password[indexW+20]);
+			schedule5 = (unsigned int) (w_password[indexW+21]);
+			schedule6 = (unsigned int) (w_password[indexW+22]);
+			schedule7 = (unsigned int) (w_password[indexW+23]);
+			schedule8 = (unsigned int) (w_password[indexW+24]);
+			schedule9 = (unsigned int) (w_password[indexW+25]);
+			schedule10 = (unsigned int) (w_password[indexW+26]);
+			schedule11 = (unsigned int) (w_password[indexW+27]);
+			schedule12 = (unsigned int) (w_password[indexW+28]);
+			schedule13 = (unsigned int) (w_password[indexW+29]);
+			schedule14 = (unsigned int) (w_password[indexW+30]);
+			schedule15 = (unsigned int) (w_password[indexW+31]);
 
+			a = first_hash0;
+			b = first_hash1;
+			c = first_hash2;
+			d = first_hash3;
+			e = first_hash4;
+			f = first_hash5;
+			g = first_hash6;
+			h = first_hash7;
+
+			ALL_SCHEDULE_LAST16()
+
+			ROUND(a, b, c, d, e, f, g, h,  schedule0, 0x428A2F98)
+			ROUND(h, a, b, c, d, e, f, g,  schedule1, 0x71374491)
+			ROUND(g, h, a, b, c, d, e, f,  schedule2, 0xB5C0FBCF)
+			ROUND(f, g, h, a, b, c, d, e,  schedule3, 0xE9B5DBA5)
+			ROUND(e, f, g, h, a, b, c, d,  schedule4, 0x3956C25B)
+			ROUND(d, e, f, g, h, a, b, c,  schedule5, 0x59F111F1)
+			ROUND(c, d, e, f, g, h, a, b,  schedule6, 0x923F82A4)
+			ROUND(b, c, d, e, f, g, h, a,  schedule7, 0xAB1C5ED5)
+			ROUND(a, b, c, d, e, f, g, h,  schedule8, 0xD807AA98)
+			ROUND(h, a, b, c, d, e, f, g,  schedule9, 0x12835B01)
+			ROUND(g, h, a, b, c, d, e, f, schedule10, 0x243185BE)
+			ROUND(f, g, h, a, b, c, d, e, schedule11, 0x550C7DC3)
+			ROUND(e, f, g, h, a, b, c, d, schedule12, 0x72BE5D74)
+			ROUND(d, e, f, g, h, a, b, c, schedule13, 0x80DEB1FE)
+			ROUND(c, d, e, f, g, h, a, b, schedule14, 0x9BDC06A7)
+			ROUND(b, c, d, e, f, g, h, a, schedule15, 0xC19BF174)
+			ROUND(a, b, c, d, e, f, g, h, schedule16, 0xE49B69C1)
+			ROUND(h, a, b, c, d, e, f, g, schedule17, 0xEFBE4786)
+			ROUND(g, h, a, b, c, d, e, f, schedule18, 0x0FC19DC6)
+			ROUND(f, g, h, a, b, c, d, e, schedule19, 0x240CA1CC)
+			ROUND(e, f, g, h, a, b, c, d, schedule20, 0x2DE92C6F)
+			ROUND(d, e, f, g, h, a, b, c, schedule21, 0x4A7484AA)
+			ROUND(c, d, e, f, g, h, a, b, schedule22, 0x5CB0A9DC)
+			ROUND(b, c, d, e, f, g, h, a, schedule23, 0x76F988DA)
+			ROUND(a, b, c, d, e, f, g, h, schedule24, 0x983E5152)
+			ROUND(h, a, b, c, d, e, f, g, schedule25, 0xA831C66D)
+			ROUND(g, h, a, b, c, d, e, f, schedule26, 0xB00327C8)
+			ROUND(f, g, h, a, b, c, d, e, schedule27, 0xBF597FC7)
+			ROUND(e, f, g, h, a, b, c, d, schedule28, 0xC6E00BF3)
+			ROUND(d, e, f, g, h, a, b, c, schedule29, 0xD5A79147)
+			ROUND(c, d, e, f, g, h, a, b, schedule30, 0x06CA6351)
+			ROUND(b, c, d, e, f, g, h, a, schedule31, 0x14292967)
+
+			ALL_SCHEDULE32()
+
+			ROUND(a, b, c, d, e, f, g, h, schedule0, 0x27B70A85)
+			ROUND(h, a, b, c, d, e, f, g, schedule1, 0x2E1B2138)
+			ROUND(g, h, a, b, c, d, e, f, schedule2, 0x4D2C6DFC)
+			ROUND(f, g, h, a, b, c, d, e, schedule3, 0x53380D13)
+			ROUND(e, f, g, h, a, b, c, d, schedule4, 0x650A7354)
+			ROUND(d, e, f, g, h, a, b, c, schedule5, 0x766A0ABB)
+			ROUND(c, d, e, f, g, h, a, b, schedule6, 0x81C2C92E)
+			ROUND(b, c, d, e, f, g, h, a, schedule7, 0x92722C85)
+			ROUND(a, b, c, d, e, f, g, h, schedule8, 0xA2BFE8A1)
+			ROUND(h, a, b, c, d, e, f, g, schedule9, 0xA81A664B)
+			ROUND(g, h, a, b, c, d, e, f, schedule10, 0xC24B8B70)
+			ROUND(f, g, h, a, b, c, d, e, schedule11, 0xC76C51A3)
+			ROUND(e, f, g, h, a, b, c, d, schedule12, 0xD192E819)
+			ROUND(d, e, f, g, h, a, b, c, schedule13, 0xD6990624)
+			ROUND(c, d, e, f, g, h, a, b, schedule14, 0xF40E3585)
+			ROUND(b, c, d, e, f, g, h, a, schedule15, 0x106AA070)
+			ROUND(a, b, c, d, e, f, g, h, schedule16, 0x19A4C116)
+			ROUND(h, a, b, c, d, e, f, g, schedule17, 0x1E376C08)
+			ROUND(g, h, a, b, c, d, e, f, schedule18, 0x2748774C)
+			ROUND(f, g, h, a, b, c, d, e, schedule19, 0x34B0BCB5)
+			ROUND(e, f, g, h, a, b, c, d, schedule20, 0x391C0CB3)
+			ROUND(d, e, f, g, h, a, b, c, schedule21, 0x4ED8AA4A)
+			ROUND(c, d, e, f, g, h, a, b, schedule22, 0x5B9CCA4F)
+			ROUND(b, c, d, e, f, g, h, a, schedule23, 0x682E6FF3)
+			ROUND(a, b, c, d, e, f, g, h, schedule24, 0x748F82EE)
+			ROUND(h, a, b, c, d, e, f, g, schedule25, 0x78A5636F)
+			ROUND(g, h, a, b, c, d, e, f, schedule26, 0x84C87814)
+			ROUND(f, g, h, a, b, c, d, e, schedule27, 0x8CC70208)
+			ROUND(e, f, g, h, a, b, c, d, schedule28, 0x90BEFFFA)
+			ROUND(d, e, f, g, h, a, b, c, schedule29, 0xA4506CEB)
+			ROUND(c, d, e, f, g, h, a, b, schedule30, 0xBEF9A3F7)
+			ROUND(b, c, d, e, f, g, h, a, schedule31, 0xC67178F2)
+			
+			first_hash0 += a;
+			first_hash1 += b;
+			first_hash2 += c;
+			first_hash3 += d;
+			first_hash4 += e;
+			first_hash5 += f;
+			first_hash6 += g;
+			first_hash7 += h;
+		}
 //----------------------------------------------------- SECOND HASH ------------------------------------------------
                 schedule0 = first_hash0;
                 schedule1 = first_hash1;

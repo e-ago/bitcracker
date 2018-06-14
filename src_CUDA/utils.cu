@@ -236,7 +236,6 @@ int readFilePassword(uint32_t ** buf_i, char ** buf_c, int maxNumPsw, FILE *fp) 
 		j=0; k=0; count=0;
 		size = (strlen(tmp)-1);
 		
-		//User passwords longer than 27 characters not supported yet
 		if(attack_mode == MODE_USER_PASS && ( size > SECOND_LENGHT || size < MIN_INPUT_PASSWORD_LEN) && print_once == 0)
 		{
 			fprintf(stderr, "WARNING: During USER PASSWORD attack, only passwords between %d and %d character are considered. Passwords like %s will be ignored.\n", MIN_INPUT_PASSWORD_LEN, SECOND_LENGHT, tmp);

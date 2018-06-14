@@ -82,9 +82,9 @@ int checkDeviceStatistics()
 	int i, j;
 	char* value;
 	size_t valueSize, maxWorkGroup;
-	cl_int platformCount;
+	cl_uint platformCount;
 	cl_platform_id* platforms;
-	cl_int deviceCount;
+	cl_uint deviceCount;
 	cl_device_id* devices;
 	cl_int maxComputeUnits, deviceAddressBits;
 	cl_ulong maxAllocSize, maxConstBufSize;

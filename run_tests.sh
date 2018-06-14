@@ -64,3 +64,6 @@ set -x
 
 #Windows 10 Not Compatible Mode long password
 ./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatLong_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatLong_user_password.txt -d ./Dictionary/user_passwords.txt $SINGLE_BLOCK -u -m
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatLong_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r
+./build/bitcracker_cuda -f ./test_hash/imgWin10NotCompatLong_recovery_password.txt -d ./Dictionary/recovery_passwords.txt $SINGLE_BLOCK -r -m
