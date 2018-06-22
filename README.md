@@ -215,7 +215,7 @@ On the GTV100 password rate is about 3150p/s. JtR team developed the CPU version
 
 #### Next Release
 
-* Provide a dictionary with all the possible Recovery Passwords (they are not randomly generated!)
+* Provide a script to generate subset of allowed Recovery Passwords
 * Provide a multi-GPU implementation
 
 ## References, credits and contacts
