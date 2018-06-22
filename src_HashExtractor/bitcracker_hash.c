@@ -112,7 +112,7 @@ static void print_hex(unsigned char *str, int len, FILE *out)
 	}										 \
 }
 
-#define SERACH_SALT(slen) {								\
+#define SEARCH_SALT(slen) {								\
 	fprintf(stderr, "Searching AES-CCM from 0x%08lx\n", ftell(encryptedImage));	\
 	fseek(encryptedImage, slen, SEEK_CUR);						\
 	fillBuffer(encryptedImage, r_salt, SALT_SIZE);					\
@@ -206,11 +206,11 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				curr_fp = ftell(encryptedImage);
 				fprintf(stderr, "VMK encrypted with Recovery Password found at 0x%08lx\n", curr_fp);
 
-				SERACH_SALT(12)
+				SEARCH_SALT(12)
 				if (found_ccm == 0)
 				{
 					fseek(encryptedImage, curr_fp, SEEK_SET);
-					SERACH_SALT(12+20)
+					SEARCH_SALT(12+20)
 				}
 				if (found_ccm == 0)
 				{
