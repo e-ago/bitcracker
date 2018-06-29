@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -27,7 +28,11 @@
 #include <getopt.h>
 #include <errno.h>
 #include <limits.h>
-#include <stdlib.h>
+#include <sys/types.h>
+
+#define __USE_FILE_OFFSET64
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64
 
 #define INPUT_SIZE 1024
 
@@ -44,8 +49,31 @@
 #define FILE_OUT_HASH_USER "hash_user_pass.txt"
 #define FILE_OUT_HASH_RECV "hash_recv_pass.txt"
 
+#define FRET_CHECK(ret)								\
+        if(ret < 0)									\
+        {										\
+        	fprintf(stderr, "ftell error %s (%d)\n", strerror(errno),errno);	\
+        	exit(EXIT_FAILURE);							\
+        }
+
+//Fixed
 static unsigned char p_salt[SALT_SIZE], p_nonce[NONCE_SIZE], p_mac[MAC_SIZE], p_vmk[VMK_SIZE];
 static unsigned char r_salt[SALT_SIZE], r_nonce[NONCE_SIZE], r_mac[MAC_SIZE], r_vmk[VMK_SIZE];
+const char signature[SIGNATURE_LEN] = "-FVE-FS-";
+unsigned char vmk_entry[4] = { 0x02, 0x00, 0x08, 0x00 };
+unsigned char key_protection_clear[2] = { 0x00, 0x00 };
+unsigned char key_protection_tpm[2] = { 0x00, 0x01 };
+unsigned char key_protection_start_key[2] = { 0x00, 0x02 };
+unsigned char key_protection_recovery[2] = { 0x00, 0x08 };
+unsigned char key_protection_password[2] = { 0x00, 0x20 };
+unsigned char value_type[2] = { 0x00, 0x05 };
+unsigned char padding[16] = {0};
+
+int userPasswordFound=0, recoveryPasswordFound=0, found_ccm=0;
+long int fp_before_aes=0, fp_before_salt=0;
+FILE *outFileUser, *outFileRecv, * encryptedImage;
+int salt_pos[2] = {12, 32};
+int aes_pos[2] = {147, 67};
 
 void * Calloc(size_t len, size_t size) {
 	void * ptr = NULL;
@@ -81,9 +109,7 @@ static int usage(char *name){
 
 static void fillBuffer(FILE *fp, unsigned char *buffer, int size)
 {
-	int k;
-
-	for (k = 0; k < size; k++)
+	for (int k = 0; k < size; k++)
 		buffer[k] = (unsigned char)fgetc(fp);
 }
 
@@ -95,61 +121,59 @@ static void print_hex(unsigned char *str, int len, FILE *out)
 		fprintf(out, "%02x", str[i]);
 }
 
-#define SERACH_AESCCM(elen) {								 \
-	fseek(encryptedImage, elen, SEEK_CUR);						 \
-	fprintf(stderr, "Offset=0x%08lx\n", (ftell(encryptedImage)-2)); \
-	a=(uint8_t)fgetc(encryptedImage);					 \
-	b=(uint8_t)fgetc(encryptedImage);					 \
-	if (( a != value_type[0]) || (b != value_type[1])) {				 \
-		fprintf(stderr, "Error: VMK not encrypted with AES-CCM (0x%x,0x%x),  offset=0x%08lx\n",a ,b, (ftell(encryptedImage)-2)); \
-		found_ccm=0;								 \
-	}										 \
-	else 									 	 \
-	{									 	 \
-		fprintf(stderr, "VMK encrypted with AES-CCM (0x%08lx)\n", (ftell(encryptedImage)-2));		 \
-		found_ccm=1;								 \
-		fseek(encryptedImage, 3, SEEK_CUR);					 \
-	}										 \
+int rp_search_salt_aes() {
+	uint8_t a,b;
+	int ret=0;
+
+	for(int x=0; x < 2; x++)
+	{
+		ret=fseek(encryptedImage, salt_pos[x], SEEK_CUR);
+		FRET_CHECK(ret)
+
+		fillBuffer(encryptedImage, r_salt, SALT_SIZE);
+		printf("Salt: ");
+		print_hex(r_salt, SALT_SIZE, stdout);
+		printf("\n");
+		fp_before_aes=ftell(encryptedImage);
+		FRET_CHECK(fp_before_aes)
+		fprintf(stderr, "Searching AES-CCM from 0x%lx\n", fp_before_aes);
+
+		for(int y=0; y < 2; y++)
+		{
+			ret=fseek(encryptedImage, aes_pos[y], SEEK_CUR);
+			FRET_CHECK(ret)
+
+			fprintf(stderr, "Trying offset 0x%lx....\n", ftell(encryptedImage));
+			a=(uint8_t)fgetc(encryptedImage);
+			b=(uint8_t)fgetc(encryptedImage);
+			if (( a != value_type[0]) || (b != value_type[1])) {
+				fprintf(stderr, "Error: VMK not encrypted with AES-CCM (0x%x,0x%x)\n", a, b);
+				found_ccm=0;
+			}
+			else 
+			{
+				fprintf(stderr, "VMK encrypted with AES-CCM!!\n");
+				found_ccm=1;
+				ret=fseek(encryptedImage, 3, SEEK_CUR);
+				FRET_CHECK(ret)
+			}
+
+			if(found_ccm == 1) break;
+		}
+
+		if(found_ccm == 1) break;
+	}
+
+	return 0;
 }
 
-#define SEARCH_SALT(slen) {								\
-	fprintf(stderr, "Searching AES-CCM from 0x%08lx\n", ftell(encryptedImage));	\
-	fseek(encryptedImage, slen, SEEK_CUR);						\
-	fillBuffer(encryptedImage, r_salt, SALT_SIZE);					\
-	printf("Salt: ");								\
-	print_hex(r_salt, SALT_SIZE, stdout);						\
-	printf("\n");									\
-	startfp=ftell(encryptedImage);							\
-	SERACH_AESCCM(147)								\
-	if(found_ccm==0)								\
-	{										\
-		fseek(encryptedImage, startfp, SEEK_SET);				\
-		SERACH_AESCCM(67)							\
-	}										\
-}
-
-int userPasswordFound=0, recoveryPasswordFound=0;
 
 int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRecovery)
 {
-	int version = 0, i = 0, match = 0, found_ccm=0;
-	long int fileLen = 0, j=0;
-	int startfp=0;
-	const char signature[SIGNATURE_LEN] = "-FVE-FS-";
-	unsigned char vmk_entry[4] = { 0x02, 0x00, 0x08, 0x00 };
-	unsigned char key_protection_clear[2] = { 0x00, 0x00 };
-	unsigned char key_protection_tpm[2] = { 0x00, 0x01 };
-	unsigned char key_protection_start_key[2] = { 0x00, 0x02 };
-	unsigned char key_protection_recovery[2] = { 0x00, 0x08 };
-	unsigned char key_protection_password[2] = { 0x00, 0x20 };
-	unsigned char value_type[2] = { 0x00, 0x05 };
-	unsigned char padding[16] = {0};
-	uint8_t a,b;
+	long int fileLen=0, j=0;
+	int version = 0, i = 0, match = 0, ret = 0;
 	unsigned char c,d;
-	FILE *outFileUser, *outFileRecv, * encryptedImage;
-	long int curr_fp=0;
 
-	printf("Opening file %s\n", encryptedImagePath);
 	encryptedImage = fopen(encryptedImagePath, "r");
 
 	if (!encryptedImage || !outHashUser || !outHashRecovery) {
@@ -157,9 +181,17 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 		return 1;
 	}
 
-	fseek(encryptedImage, 0, SEEK_END);
+	ret=fseek(encryptedImage, 0, SEEK_END);
+	FRET_CHECK(ret)
+
 	fileLen = ftell(encryptedImage);
-	fseek(encryptedImage, 0, SEEK_SET);
+	FRET_CHECK(fileLen)
+	printf("Encrypted device %s opened, size %ldMB\n", encryptedImagePath, ((fileLen/1024)/1024));
+	ret=fseek(encryptedImage, 0, SEEK_SET);
+	FRET_CHECK(ret)
+
+	//printf("sizeof off_t=%ld, long int=%ld, ULONG_MAX=%lu LONG_MAX=%ld\n", sizeof(off_t), sizeof(long int), ULONG_MAX, LONG_MAX);
+
 	for (j = 0; j < fileLen; j++) {
 		c = fgetc(encryptedImage);
 		while (i < 8 && (unsigned char)c == signature[i]) {
@@ -168,8 +200,8 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 		}
 		if (i == 8) {
 			match = 1;
-			fprintf(stderr, "\nSignature found at 0x%08lx\n", (ftell(encryptedImage) - i - 1));
-			fseek(encryptedImage, 1, SEEK_CUR);
+			fprintf(stderr, "\nSignature found at 0x%lx\n", (ftell(encryptedImage) - i - 1));
+			ret=fseek(encryptedImage, 1, SEEK_CUR);
 			version = fgetc(encryptedImage);
 			fprintf(stderr, "Version: %d ", version);
 			if (version == 1)
@@ -190,28 +222,25 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 		}
 
 		if (i == 4) {
-			fprintf(stderr, "\nVMK entry found at 0x%08lx\n", (ftell(encryptedImage) - i));
-			fseek(encryptedImage, 27, SEEK_CUR);
+			fprintf(stderr, "\nVMK entry found at 0x%lx\n", (ftell(encryptedImage) - i));
+			ret=fseek(encryptedImage, 27, SEEK_CUR);
+			FRET_CHECK(ret)
 			c = (unsigned char)fgetc(encryptedImage);
 			d = (unsigned char)fgetc(encryptedImage);
 
+			fp_before_salt = ftell(encryptedImage);
+			FRET_CHECK(fp_before_salt)
+
 			if ((c == key_protection_clear[0]) && (d == key_protection_clear[1])) 
-				fprintf(stderr, "VMK not encrypted.. stored clear! (0x%08lx)\n", ftell(encryptedImage));
+				fprintf(stderr, "VMK not encrypted.. stored clear! (0x%lx)\n", fp_before_salt);
 			else if ((c == key_protection_tpm[0]) && (d == key_protection_tpm[1])) 
-				fprintf(stderr, "VMK encrypted with TPM...not supported! (0x%08lx)\n", ftell(encryptedImage));
+				fprintf(stderr, "VMK encrypted with TPM...not supported! (0x%lx)\n", fp_before_salt);
 			else if ((c == key_protection_start_key[0]) && (d == key_protection_start_key[1])) 
-				fprintf(stderr, "VMK encrypted with Startup Key...not supported! (0x%08lx)\n", ftell(encryptedImage));
+				fprintf(stderr, "VMK encrypted with Startup Key...not supported! (0x%lx)\n", fp_before_salt);
 			else if ((c == key_protection_recovery[0]) && (d == key_protection_recovery[1]) && recoveryPasswordFound == 0) 
 			{
-				curr_fp = ftell(encryptedImage);
-				fprintf(stderr, "VMK encrypted with Recovery Password found at 0x%08lx\n", curr_fp);
-
-				SEARCH_SALT(12)
-				if (found_ccm == 0)
-				{
-					fseek(encryptedImage, curr_fp, SEEK_SET);
-					SEARCH_SALT(12+20)
-				}
+				fprintf(stderr, "\nVMK encrypted with Recovery Password found at 0x%lx\n", fp_before_salt);
+				rp_search_salt_aes();
 				if (found_ccm == 0)
 				{
 					match=0;
@@ -220,25 +249,28 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				}
 				
 				fillBuffer(encryptedImage, r_nonce, NONCE_SIZE);
-				printf("\nNonce: ");
+				fprintf(stdout, "RP Nonce: ");
 				print_hex(r_nonce, NONCE_SIZE, stdout);
 				
 				fillBuffer(encryptedImage, r_mac, MAC_SIZE);
-				printf("\nMAC: ");
+				fprintf(stdout, "\nRP MAC: ");
 				print_hex(r_mac, MAC_SIZE, stdout);
 				
+				fprintf(stdout, "\nRP VMK: ");
 				fillBuffer(encryptedImage, r_vmk, VMK_SIZE);
-				printf("\nVMK: ");
 				print_hex(r_vmk, VMK_SIZE, stdout);
+				fprintf(stdout, "\n\n");
+				fflush(stdout);
 				recoveryPasswordFound=1;
 			}
 			else if ((c == key_protection_password[0]) && (d == key_protection_password[1]) && userPasswordFound == 0) 
 			{
-				curr_fp = ftell(encryptedImage);
-				fprintf(stderr, "VMK encrypted with User Password found at %lx\n", curr_fp);
-				fseek(encryptedImage, 12, SEEK_CUR);
+				fprintf(stderr, "\nVMK encrypted with User Password found at %lx\n", fp_before_salt);
+				ret=fseek(encryptedImage, 12, SEEK_CUR);
+				FRET_CHECK(ret)
 				fillBuffer(encryptedImage, p_salt, SALT_SIZE);
-				fseek(encryptedImage, 83, SEEK_CUR);
+				ret=fseek(encryptedImage, 83, SEEK_CUR);
+				FRET_CHECK(ret)
 				if (((unsigned char)fgetc(encryptedImage) != value_type[0]) || ((unsigned char)fgetc(encryptedImage) != value_type[1])) {
 					fprintf(stderr, "Error: VMK not encrypted with AES-CCM\n");
 					match=0;
@@ -247,10 +279,22 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				}
 				else fprintf(stderr, "VMK encrypted with AES-CCM\n");
 
-				fseek(encryptedImage, 3, SEEK_CUR);
+				ret=fseek(encryptedImage, 3, SEEK_CUR);
+				FRET_CHECK(ret)
+
 				fillBuffer(encryptedImage, p_nonce, NONCE_SIZE);
+				fprintf(stdout, "UP Nonce: ");
+				print_hex(p_nonce, NONCE_SIZE, stdout);
+
 				fillBuffer(encryptedImage, p_mac, MAC_SIZE);
+				fprintf(stdout, "\nUP MAC: ");
+				print_hex(p_mac, MAC_SIZE, stdout);
+
 				fillBuffer(encryptedImage, p_vmk, VMK_SIZE);
+				fprintf(stdout, "\nUP VMK: ");
+				print_hex(p_vmk, VMK_SIZE, stdout);
+				fprintf(stdout, "\n\n");
+				fflush(stdout);
 				userPasswordFound=1;
 			}
 		}
