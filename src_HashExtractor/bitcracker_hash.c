@@ -109,7 +109,8 @@ static int usage(char *name){
 
 static void fillBuffer(FILE *fp, unsigned char *buffer, int size)
 {
-	for (int k = 0; k < size; k++)
+	int k;
+	for (k = 0; k < size; k++)
 		buffer[k] = (unsigned char)fgetc(fp);
 }
 
@@ -123,9 +124,9 @@ static void print_hex(unsigned char *str, int len, FILE *out)
 
 int rp_search_salt_aes() {
 	uint8_t a,b;
-	int ret=0;
+	int ret=0, x, y;
 
-	for(int x=0; x < 2; x++)
+	for(x=0; x < 2; x++)
 	{
 		ret=fseek(encryptedImage, salt_pos[x], SEEK_CUR);
 		FRET_CHECK(ret)
@@ -138,7 +139,7 @@ int rp_search_salt_aes() {
 		FRET_CHECK(fp_before_aes)
 		fprintf(stderr, "Searching AES-CCM from 0x%lx\n", fp_before_aes);
 
-		for(int y=0; y < 2; y++)
+		for(y=0; y < 2; y++)
 		{
 			ret=fseek(encryptedImage, aes_pos[y], SEEK_CUR);
 			FRET_CHECK(ret)
