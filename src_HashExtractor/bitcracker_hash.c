@@ -161,9 +161,12 @@ int rp_search_salt_aes() {
 
 			if(found_ccm == 1) break;
 			ret=fseek(encryptedImage, fp_before_aes, SEEK_SET);
+			FRET_CHECK(ret)
 		}
 
 		if(found_ccm == 1) break;
+		ret=fseek(encryptedImage, fp_before_salt, SEEK_SET);
+		FRET_CHECK(ret)
 	}
 
 	return 0;
