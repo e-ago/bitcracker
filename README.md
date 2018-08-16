@@ -14,7 +14,7 @@ To run the BitCracker-CUDA, minimal requirements are:
 
 To run the BitCracker-OpenCL, minimal requirements are any GPU or CPU supporting OpenCL (you can find some help [here](https://www.khronos.org/conformance/adopters/conformant-products#opencl).
 
-Minimum memory requirement is 260 MB.
+BitCracker requires at least 260 MB of device memory.
 
 We strongly recommend to run your attack on a GPU rather than CPU for performance reasons (see section [Performance](https://github.com/e-ago/bitcracker#performance)).
 
