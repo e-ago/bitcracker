@@ -103,6 +103,7 @@ Where:
 - `-d` : path to your wordlist
 - `-t` : number of passwords processed by each CUDA thread
 - `-b` : number of CUDA blocks
+- `-g` : NVIDIA GPU device ID
 - `-u` : specify your want an user password attack
 
 For all the available options, type `./build/bitcracker_cuda -h`.
@@ -198,6 +199,53 @@ The `-d` option enables the possibility to have duplicates in the same Recovery 
 `000000-000011-000055-000055-000044-000055-000902-217822`
 
 For all the available options, type `./build/bitcracker_rpgen -h`.
+
+A command line example:
+
+```./build/bitcracker_cuda -f hash_recv_pass.txt -d bitcracker_wlrp_0.txt -t 1 -b 1 -g 0 -r```
+
+Where options are the same as in case of User Password but instead of `-u` you need to specify `-r`. An output example:
+
+```
+====================================
+Selected device: GPU Tesla K80 (ID: 0)
+====================================
+
+...
+Reading hash file "hash_recv_pass.txt"
+$bitlocker$2$16$432dd19f37dd413a88552225628c8ae5$1048576$12$a0da3fc75f6cd30106000000$60$3e57c68216ef3d2b8139fdb0ec74254bdf453e688401e89b41cae7c250739a8b36edd4fe86a597b5823cf3e0f41c98f623b528960a4bee00c42131ef
+
+
+====================================
+Attack
+====================================
+
+Type of attack: Recovery Password
+CUDA Threads: 1024
+CUDA Blocks: 1
+Psw per thread: 8
+Max Psw per kernel: 8192
+Dictionary: wordlist.txt
+Strict Check (-s): No
+MAC Comparison (-m): No
+
+CUDA Kernel execution:
+	Effective passwords: 6014
+	Passwords Range:
+		390775-218680-136708-700645-433191-416240-153241-612216
+		.....
+		090134-625383-540826-613283-563497-710369-160182-661364
+	Time: 193.358937 sec
+	Passwords x second:    31.10 pw/sec
+
+
+================================================
+CUDA attack completed
+Passwords evaluated: 6014
+Password found: 111683-110022-683298-209352-468105-648483-571252-334455
+================================================
+```
+
 
 ## False Positives
 
