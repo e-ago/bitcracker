@@ -7,6 +7,11 @@ cd src_HashExtractor && make clean && make
 cd ..
 mv src_HashExtractor/bitcracker_hash build 2> /dev/null
 
+printf "\n====== Build BitCracker Recovery Password generator ======\n"
+cd src_RPGenerator && make clean && make
+cd ..
+mv src_RPGenerator/bitcracker_rpgen build 2> /dev/null
+
 printf "\n====== Build BitCracker CUDA version ======\n"
 cd src_CUDA && make clean && make
 cd ..
