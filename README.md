@@ -1,80 +1,60 @@
 # BitCracker
 
-BitCracker is the first open source password cracking tool for memory units (Hard Disk, USB Pendrive, SD card, etc...) encrypted with [BitLocker](https://technet.microsoft.com/en-us/library/cc766295(v=ws.10).aspx), an encryption feature available on Windows Vista, 7, 8.1 and 10 (Ultimate, Pro, Enterprise editions).
-BitCracker is a mono-GPU algorithm (implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl) ) which performs a dictionary attack against memory units encrypted with BitLocker.
-For all the authentication (encryption) methods offered by BitLocker (i.e. User Password, Smart Card, TPM, TPM+PIN, etc..) you can always use the BitCracker Recovery Password attack (-r option). As additional feature, if your device has been encrypted with an User Password (BitLocker-To-Go feature) you can use the BitCracker User Password attack (-u option). 
+BitCracker is the first open source password cracking tool for storage devices (Hard Disk, USB Pendrive, SD card, etc...) encrypted with [BitLocker](https://technet.microsoft.com/en-us/library/cc766295(v=ws.10).aspx), an encryption feature available on Windows Vista, 7, 8.1 and 10 (Ultimate, Pro and Enterprise editions). BitLocker offers a number of different authentication methods to encrypt a storage device like Trusted Platform Module (TPM), Smart Card, Recovery Password, User supplied password.
+
+By means of a dictionary attack, BitCracker tries to find the correct User Password or Recovery Password used to decrypt the target encrypted memory device. It has been implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl).
 
 **CRITICAL ERROR FIXED IN COMMITS 7b2a6b6 (CUDA version) and 5f09d7f (OpenCL version): bad loop termination! Please re-run your tests.**
 
-## User Password Attack
-
-With this authentication method, the user can choose to encrypt a memory device by means of a password.
-
-![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
-
-To find the password used during the encryption with BitCracker, you need to specify the -u option (see the *How To* section).
-
-## Recovery Password Attack
-
-During the encryption of a memory device, (regardless the authentication method) BitLocker asks the user to store somewhere a Recovery Password that can be used to restore the access to the encrypted memory unit in the event that she/he can't unlock the drive normally.
-Thus the Recovery Password is a kind of *passe-partout* for all the authentication methods and it consists of a 48-digit key like this:
-
-> 236808-089419-192665-495704-618299-073414-538373-542366
-
-To find the correct Recovery Password with BitCracker, you need to specify the -r option (see *How To* section).
-See [Microsoft docs](https://docs.microsoft.com/en-us/windows/device-security/bitlocker/bitlocker-recovery-guide-plan) for further details.
-
 ## Requirements
 
-Minimum requirements for CUDA implementation:
+To run the BitCracker-CUDA, minimal requirements are:
+- an [NVIDIA GPU](https://en.wikipedia.org/wiki/List_of_Nvidia_graphics_processing_units) with CC 3.5 or later
+- CUDA 7.5 or newer
 
-- CUDA 7.5
-- [NVIDIA GPU](https://en.wikipedia.org/wiki/List_of_Nvidia_graphics_processing_units) with CC 3.5 or later
+To run the BitCracker-OpenCL, minimal requirements are any GPU or CPU supporting OpenCL (you can find some help [here](https://www.khronos.org/conformance/adopters/conformant-products#opencl).
 
-As shown in the *Performance* section, both CUDA and OpenCL implementations have been tested on several NVIDIA GPUs with *Kepler*, *Maxwell* and *Pascal* architectures. In addition, the OpenCL code has been tested on an AMD GPU and a 2.9 GHz Intel Core i7 CPU (quad-core).
+Minimum memory requirement is 260 MB.
 
-Minimum memory requirement is 260 Mb; it may increase depending on the number of passwords processed by each kernel.
+We strongly recommend to run your attack on a GPU rather than CPU for performance reasons (see section [Performance](https://github.com/e-ago/bitcracker#performance)).
 
-## How To
+## Build
 
-Use the *build.sh* script to build 3 executables:
+Running the `build.sh` script generates 4 executables inside the `build` directory: `bitcracker_hash`, `bitcracker_rpgen`, `bitcracker_cuda`, `bitcracker_opencl`.
 
-- bitcracker_hash
-- bitcracker_cuda
-- bitcracker_opencl
+Note. In order to build `bitcracker_cuda` coherently with your NVIDIA GPU and CUDA version, you need to modify the `src_CUDA/Makefile` chosing the correct SM version. As a reference, you can use the following table:
 
-The script stores the executables in the *build* local directory.
-
-You need to configure the src_CUDA/Makefile and src_OpenCL/Makefile according to your CUDA/GPU/Platform type or version.
-To compile the bitcracker_cuda, please use the following correspondence table:
-
-| GPU Architecture | Suggested CUDA |         NVCC Gencode       |
+| GPU Architecture | Suggested CUDA |          Makefile 	 |
 | ---------------- | -------------- | -------------------------- |
 | Kepler           | CUDA 7.5       | arch=compute_35,code=sm_35 |
 | Maxwell          | CUDA 8.0       | arch=compute_52,code=sm_52 |
 | Pascal           | CUDA 9.0       | arch=compute_60,code=sm_60 |
 | Volta            | CUDA 9.0       | arch=compute_70,code=sm_70 |
 
+## Prepare the attack
 
-#### Step 1: Extract the image
-
-You need to extract the image of your memory device encrypted with BitLocker.
-For example, you can use the *dd* command:
+You need to create the image of your storage device encrypted with BitLocker using, as an example, the *dd* command:
 
 ```
-sudo dd if=/dev/disk2 of=/path/to/imageEncrypted conv=noerror,sync
+sudo dd if=/dev/disk2 of=/path/to/imageEncrypted.img conv=noerror,sync
 4030464+0 records in
 4030464+0 records out
 2063597568 bytes transferred in 292.749849 secs (7049013 bytes/sec)
 ```
 
-#### Step 2: Extract the hash
+Then you need to run the `bitcracker_hash` executable on your `imageEncrypted.img` in order to:
+- check if the image has a valid format that can be attacked by BitCracker
+- check if the the original storage device hash been encrypted with an User Password or a Recovery Password
+- extract the hash describing the image
 
-*bitcracker_hash* verifies if the input memory unit satisfies some requirements. It returns two output files:
+If the execution completes correctly, `bitcracker_hash` produces 1 or 2 output files:
 
-* hash_user_pass.txt : the hash you need to start the User Password attack mode
+* hash_user_pass.txt : if the device was encrypted with a User Password, this file contains the hash you need to start the User Password attack mode.
 * hash_recv_pass.txt : the hash you need to start the Recovery Password attack mode
 
+Note. BDE encrypted volumes could have different structure for different authentication methods. If *bitcracker_hash* is not able to find the Recovery Password on your encrypted image, please open an issue or contact me
+
+An example:
 ```
 /build/bitcracker_hash -o test_hash -i ./Images/imgWin7
 
@@ -104,22 +84,40 @@ Output file for user password attack: "hash_user_pass.txt"
 Output file for recovery password attack: "hash_recv_pass.txt"
 ```
 
-Notes:
-- While the *hash_recv_pass.txt* should be always created, the *hash_user_pass.txt* is created only if the input device has been encrypted with the User Password authentication method.
-- **BDE encrypted volumes could have different structure for different authentication methods. If *bitcracker_hash* is not able to find the Recovery Password on your encrypted image, please open an issue or contact me**
+## User Password Attack
 
-#### Step 3: Start the attack
+You can use this type of attack if the storage device has been encrypted with an user supplied password as shown in the following image.
+![alt text](http://openwall.info/wiki/_media/john/bitcracker_img1.png)
+BitCracker performs a dictionary attack, thus you need to provide a wordlist of possibile user passwords.
 
-Now you can start the BitCracker attack; use the *-h* to see all the options. Here there is an attack example using the User Password method.
+To start the attack you need:
+- the `hash_user_pass.txt` file
+- a wordlist of possibile user passwords (you need to provide it by yourself)
+
+A command line example:
+
+```./build/bitcracker_cuda -f hash_user_pass.txt -d wordlist.txt -t 1 -b 1 -g 0 -u```
+
+Where:
+- `-f` : path to the `hash_user_pass.txt` file
+- `-d` : path to your wordlist
+- `-t` : number of passwords processed by each CUDA thread
+- `-b` : number of CUDA blocks
+- `-u` : specify your want an user password attack
+
+For all the available options, type `./build/bitcracker_cuda -h`.
+In order to have the best performance, please refer to the table in [Performance](https://github.com/e-ago/bitcracker#performance) section to properly set the `t` and `b` options according to your NVIDIA GPU.
+
+Same considerations can be applied for the `bitcracker_opencl` executable.
+
+An output example:
 
 ```
-./build/bitcracker_cuda -f ./test_hash/hash_user_pass.txt -d ./Dictionary/user_passwords.txt -t 1 -b 1 -g 0 -u
-
 ====================================
 Selected device: GPU Tesla K80 (ID: 0)
 ====================================
 ....
-Reading hash file "./test_hash/hash_user_pass.txt"
+Reading hash file "hash_user_pass.txt"
 $bitlocker$0$16$0a8b9d0655d3900e9f67280adc27b5d7$1048576$12$b0599ad6c6a1cf0103000000$60$c16658f54140b3d90be6de9e03b1fe90033a2c7df7127bcd16cb013cf778c12072142c484c9c291a496fc0ebd8c21c33b595a9c1587acfc6d8bb9663
 
 ====================================
@@ -131,7 +129,7 @@ CUDA Threads: 1024
 CUDA Blocks: 1
 Psw per thread: 1
 Max Psw per kernel: 1024
-Dictionary: ./Dictionary/user_passwords.txt
+Dictionary: wordlist.txt
 Strict Check (-s): No
 MAC Comparison (-m): No
 
@@ -151,30 +149,68 @@ Password found: paperino
 ================================================
 ```
 
+Currently BitCracker is able to process input passwords with a length between 8 and 55 characters.
 
-## Limitations
+## Recovery Password Attack
 
-The Recovery Password attack has been tested only with devices encrypted using the User Password; **if you test this attack mode with devices encrypted using a Smart Card or TPM, please give us your feedback!**
+During the encryption of a storage device, (regardless the authentication method) BitLocker asks the user to store somewhere a Recovery Password that can be used to restore the access to the encrypted memory unit in the event that she/he can't unlock the drive normally.
+Thus the Recovery Password is a kind of *passe-partout* for all the authentication methods and it consists of a 48-digit key like this:
 
-BitCracker doesn't provide any mask attack, cache mechanism or smart dictionary creation; therefore you need to create your own input dictionary.
+> 236808-089419-192665-495704-618299-073414-538373-542366
 
-Currently, the User Password attack allows input passwords with a length between 8 and 55 characters.
+See [Microsoft docs](https://docs.microsoft.com/en-us/windows/device-security/bitlocker/bitlocker-recovery-guide-plan) for further details.
+
+As for the user password, BitCracker is able to perform a dictionary attack to find the correct Recovery Password generated by BitLocker to encrypt the storage device. Please note that currently we are able to attack the Recovery Password only if the storage device hasn't been encrypted with the TPM.
+
+To start the attack you need:
+- the `hash_recv_pass.txt` file
+- a wordlist of possibile recovery passwords
+
+Generate and store all the possibile passwords it's an hard problem. For this reason, we created a Recovery Password generator named `bitcracker_rpgen`. With this tool you can create a bunch of Recovery Passwords wordlists you can use for your attacks. As an example:
+
+```./build/bitcracker_rpgen -n 300 -p 10000000 -s 000000-000011-000022-000033-000044-000055-008459-015180```
+
+This generates:
+- `-n` : number of wordlists
+- `-p` : number of Recovery Passwords per wordlist
+- `-s` : start to generate Recovery Passwords starting from this one
+
+You can use the default configuration not specifying any option:
+```
+./build/bitcracker_rpgen
+
+************* BitCracker Recovery Password wordlists generator *************
+
+Running with this configuration:
+### Create 100 wordlists
+### Recovery Passwords per wordlist=5000000
+### Allow duplicates=No
+### Generate starting from=000000-000011-000022-000033-000044-000055-000066-000077
+
+Creating wordlist "bitcracker_wlrp_0.txt" with 5000000 passwords
+First password=000000-000011-000022-000033-000044-000055-000066-000077
+Last password= 000000-000011-000022-000033-000044-000055-000902-217822
+...
+```
+
+Note that the `-s` option can be used to restart the generation from your last generated Recovery Password (instead of restarting everytime from the initial one).
+For all the available options, type `./build/bitcracker_rpgen -h`.
 
 ## False Positives
 
-By default, BitCracker runs a fast attack (both User and Recovery password) and it can return some false positive. To avoid false positives you can use 2 options:
-
-* -s : enables an additional check (no time consuming). This option could return some false negative
-* -m : enables the MAC verification. With this option there aren't false positives or negatives but performance decreases a lot; use this options only in case of an input wordlist composed by false positives.
+By default, BitCracker does a fast attack (both User and Recovery password) which may return some false positive. In this case you can re-run your attack with the `-m` option which enables the MAC verification (slower solution).
 
 ## Examples
 
-In the the *run_test.sh* script there are several examples of attack using the images and dictionaries of this repo:
+To test BitCracker on your system before starting the real attack, we provided several images of encrypted storage devices.
 
 * imgWin7: BitLocker on Windows 7 Enteprise edition OS
 * imgWin8: BitLocker on Windows 8 Enteprise edition OS
 * imgWin10Compat.vhd: BitLocker (compatible mode) on Windows 10 Pro edition OS
 * imgWin10NotCompat.vhd: BitLocker (not compatible mode) on Windows 10 Pro edition OS
+* imgWin10NotCompatLongPsw.vhd : BitLocker (not compatible mode) on Windows 10 Pro edition OS with a longer user password
+
+You can attack those images with both User and Recovery password modes, using the wordlists stored in the `Dictionary` folder.
 
 ## Performance
 
@@ -211,12 +247,13 @@ On the GTV100 password rate is about 3150p/s. JtR team developed the CPU version
 
 ## Changelog
 
+08/16 : New `bitcracker_rpgen` executable to generate wordlists of possible Recovery Passwords
 06/14 : User Password attack mode now supports passwords length up to 55
 
-#### Next Release
+#### What's next
 
-* Provide a script to generate subset of allowed Recovery Passwords
 * Provide a multi-GPU implementation
+* Provide a Qt interface
 
 ## References, credits and contacts
 
