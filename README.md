@@ -314,7 +314,7 @@ This is a work in progress...
 
 Plase share and test our project: we need your feedback! 
 
-Special thanks go to the John The Ripper team and [Dislocker](https://github.com/Aorimn/dislocker) and [LibBDE](https://github.com/libyal/libbde) projects.
+Special thanks to the John The Ripper team, [Dislocker](https://github.com/Aorimn/dislocker) and [LibBDE](https://github.com/libyal/libbde) projects.
 
 This is a research project in collaboration with the National Research Council of Italy released under GPLv2 license.<br />
 Copyright (C) 2013-2017  Elena Ago (elena dot ago at gmail dot com) and Massimo Bernaschi (massimo dot bernaschi at gmail dot com)<br />
