@@ -197,7 +197,8 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 	long int fileLen=0, j=0;
 	int version = 0, i = 0, match = 0, ret = 0;
 	unsigned char c,d;
-
+	int outRP=0;
+	
 	encryptedImage = fopen(encryptedImagePath, "r");
 
 	if (!encryptedImage || !outHashUser || !outHashRecovery) {
@@ -387,28 +388,13 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 
 		if(RPfound > 0)
 		{
-			int outRP=0;
 			outFileRecv = fopen(outHashRecovery, "w");
 			if (!outFileRecv) {
 				fprintf(stderr, "Error creating ./%s : %s\n", outHashRecovery, strerror(errno));
 				return 1;
 			}
-			for(int outRP=0; outRP < RPfound; outRP++)
+			for(outRP=0; outRP < RPfound; outRP++)
 			{
-				#if 0
-				sprintf(finalRP[outRP], "$bitlocker$2$%d$%02X$%d$%d$%s$%d$%s%s", 
-								SALT_SIZE, r_salt[outRP], 
-								0x100000, NONCE_SIZE,
-								r_nonce[outRP], 
-								VMK_SIZE + MAC_SIZE,
-								r_mac[outRP], r_vmk[outRP]
-						);
-
-				printf ("Recovery Key hash #%d: %s\n", outRP, finalRP[outRP]);
-				fprintf(outFileRecv, "%s", finalRP[outRP]);
-				#endif
-
-				#if 1
 				printf("\nRecovery Key hash #%d:\n$bitlocker$2$%d$", outRP, SALT_SIZE);
 				print_hex(r_salt[outRP], SALT_SIZE, stdout);
 				printf("$%d$%d$", 0x100000, NONCE_SIZE); // fixed iterations , fixed nonce size
@@ -426,7 +412,6 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				print_hex(r_mac[outRP], MAC_SIZE, outFileRecv); 
 				print_hex(r_vmk[outRP], VMK_SIZE, outFileRecv);
 				fprintf(outFileRecv, "\n");
-				#endif
 			}
 			fclose(outFileRecv);
 		}
