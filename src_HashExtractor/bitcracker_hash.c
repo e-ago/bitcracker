@@ -57,7 +57,6 @@
 //Fixed
 static unsigned char p_salt[SALT_SIZE], p_nonce[NONCE_SIZE], p_mac[MAC_SIZE], p_vmk[VMK_SIZE];
 static unsigned char r_salt[MAX_RP][SALT_SIZE], r_nonce[MAX_RP][NONCE_SIZE], r_mac[MAX_RP][MAC_SIZE], r_vmk[MAX_RP][VMK_SIZE];
-static int rp_dup[MAX_RP];
 
 const char signature[SIGNATURE_LEN] = "-FVE-FS-";
 unsigned char vmk_entry[4] = { 0x02, 0x00, 0x08, 0x00 };
@@ -198,7 +197,7 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 	int version = 0, i = 0, match = 0, ret = 0;
 	unsigned char c,d;
 	int outRP=0;
-	
+
 	encryptedImage = fopen(encryptedImagePath, "r");
 
 	if (!encryptedImage || !outHashUser || !outHashRecovery) {
@@ -248,8 +247,7 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 
 		if (i == 4) {
 			fprintf(stderr, "\n=====> VMK entry found at 0x%lx\n", (ftell(encryptedImage) - i));
-			rp_dup[RPfound]=0;
-
+		
 			ret=fseek(encryptedImage, 27, SEEK_CUR);
 			FRET_CHECK(ret)
 			c = (unsigned char)fgetc(encryptedImage);
@@ -281,7 +279,6 @@ int parse_image(char * encryptedImagePath, char * outHashUser, char * outHashRec
 				
 				if(rp_search_dup() == 1)
 				{
-					rp_dup[RPfound]=1;
 					fprintf(stdout, "This VMK has been already stored... moving forward!\n");
 				}
 				else
