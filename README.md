@@ -200,6 +200,10 @@ The `-d` option enables the possibility to have duplicates in the same Recovery 
 
 For all the available options, type `./build/bitcracker_rpgen -h`.
 
+*NOTE:* Please note that the amount of possible Recovery Passwords is huge: 
+`recovery password = 65536 x 65536 x 65536 x 65536 x 65536 x 65536 x 65536 x 65536`
+According to our research, the password distribution is uniform and there is no way to find "more probable" numbers. So far, there's no way to restrict the amount of possible candidates. This means that the Recovery Password attack could take forever (the User Passwod attack is always the preferred one). Soon we'll modify the `bitcracker_rpgen` tool to generate Recovery Password in a casual way rather than in ordered sequence.
+
 A command line example:
 
 ```./build/bitcracker_cuda -f hash_recv_pass.txt -d bitcracker_wlrp_0.txt -t 1 -b 1 -g 0 -r```
