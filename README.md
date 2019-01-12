@@ -4,7 +4,10 @@ BitCracker is the first open source password cracking tool for storage devices (
 
 By means of a dictionary attack, BitCracker tries to find the correct User Password or Recovery Password to decrypt the encrypted storage device. It has been implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl).
 
-**CRITICAL ERROR FIXED IN COMMITS 7b2a6b6 (CUDA version) and 5f09d7f (OpenCL version): bad loop termination! Please re-run your tests.**
+## BitCracker manuscript
+
+Several journals delayed the publication of our BitCracker paper (almost 3 years, with final rejection after several revisions) which explains the details of our attack, the BitLocker Drive Encryption (BDE) volume format and possible weaknesses in the encryption/decryption procedure.
+Finally, we published the paper here: https://arxiv.org/abs/1901.01337 . Please feel free to comment and share.
 
 ## Requirements
 
@@ -24,7 +27,7 @@ Running the `build.sh` script generates 4 executables inside the `build` directo
 
 In order to build `bitcracker_cuda` coherently with your NVIDIA GPU and CUDA version, you need to modify the `src_CUDA/Makefile` chosing the correct SM version. As a reference, you can use the following table:
 
-| GPU Architecture | Suggested CUDA |          Makefile 	 |
+| GPU Architecture | Suggested CUDA |          Makefile 	     |
 | ---------------- | -------------- | -------------------------- |
 | Kepler           | CUDA 7.5       | arch=compute_35,code=sm_35 |
 | Maxwell          | CUDA 8.0       | arch=compute_52,code=sm_52 |
