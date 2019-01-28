@@ -4,7 +4,7 @@ BitCracker is the first open source password cracking tool for storage devices (
 
 By means of a dictionary attack, BitCracker tries to find the correct User Password or Recovery Password to decrypt the encrypted storage device. It has been implemented in [CUDA](http://docs.nvidia.com/cuda) and [OpenCL](https://www.khronos.org/opencl).
 
-## BitCracker manuscript
+## Paper
 
 Several journals delayed the publication of our BitCracker paper (almost 3 years, with final rejection after several revisions) which explains the details of our attack, the BitLocker Drive Encryption (BDE) volume format and possible weaknesses in the encryption/decryption procedure.
 Finally, we published the paper here: https://arxiv.org/abs/1901.01337 . Please feel free to comment and share.
