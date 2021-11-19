@@ -98,79 +98,77 @@ int checkDeviceStatistics()
 	platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
 	clGetPlatformIDs(platformCount, platforms, NULL);
 
-
 	for (i = 0; i < platformCount; i++)
 	{
-	// get all devices
-	clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
-	devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
-	clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
+		// get all devices
+		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
+		devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
+		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
 
-	printf("\n# Platform: %d, # Devices: %d\n", i, deviceCount);
-	// for each device print critical attributes
-	for (j = 0; j < deviceCount; j++)
-	{
-
-	// print device name
-	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
-	value = (char*) malloc(valueSize);
-	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, valueSize, value, NULL);
-
-		if (platform_id == i && gpu_id == j)
+		printf("\n# Platform: %d, # Devices: %d\n", i, deviceCount);
+		// for each device print critical attributes
+		for (j = 0; j < deviceCount; j++)
 		{
-	    printf("\n====================================\nSelected device: %s (ID: %d) properties\n====================================\n\n", value, j);
-				deviceFound=1; 			
-		}
-		else
-	    printf("\n====================================\nDevice %s (ID: %d) properties\n====================================\n\n", value, j);				
+			// print device name
+			clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
+			value = (char*) malloc(valueSize);
+			clGetDeviceInfo(devices[j], CL_DEVICE_NAME, valueSize, value, NULL);
 
-	free(value);
+			if (platform_id == i && gpu_id == j)
+			{
+				printf("\n====================================\nSelected device: %s (ID: %d) properties\n====================================\n\n", value, j);
+				deviceFound=1;
+			}
+			else
+				printf("\n====================================\nDevice %s (ID: %d) properties\n====================================\n\n", value, j);				
 
-	// print hardware device version
-	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
-	value = (char*) malloc(valueSize);
-	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, valueSize, value, NULL);
-	printf("OpenCL version supported: %s\n", value);
-	free(value);
+			free(value);
 
-	// print software driver version
-	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, 0, NULL, &valueSize);
-	value = (char*) malloc(valueSize);
-	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, valueSize, value, NULL);
-	printf("Software version: %s\n", value);
-	free(value);
+			// print hardware device version
+			clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
+			value = (char*) malloc(valueSize);
+			clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, valueSize, value, NULL);
+			printf("OpenCL version supported: %s\n", value);
+			free(value);
 
-	// print c version supported by compiler for device
-	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &valueSize);
-	value = (char*) malloc(valueSize);
-	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
-	printf("OpenCL C version: %s\n", value);
-	free(value);
-			
+			// print software driver version
+			clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, 0, NULL, &valueSize);
+			value = (char*) malloc(valueSize);
+			clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, valueSize, value, NULL);
+			printf("Software version: %s\n", value);
+			free(value);
+
+			// print c version supported by compiler for device
+			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &valueSize);
+			value = (char*) malloc(valueSize);
+			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
+			printf("OpenCL C version: %s\n", value);
+			free(value);
+
 			clGetDeviceInfo(devices[j], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(maxAllocSize), &maxAllocSize, NULL);
-	printf("Max Global Memory Size: %lld\n", maxAllocSize);
-		GPU_MAX_GLOBAL_MEM=maxAllocSize;
-		maxAllocSize=0;
-	clGetDeviceInfo(devices[j], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxAllocSize), &maxAllocSize, NULL);
-	printf("Max Global Memory Alloc Size: %lld\n", maxAllocSize);
-		GPU_MAX_MEM_ALLOC_SIZE=maxAllocSize;
+			printf("Max Global Memory Size: %lld\n", maxAllocSize);
+			GPU_MAX_GLOBAL_MEM=maxAllocSize;
+			maxAllocSize=0;
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxAllocSize), &maxAllocSize, NULL);
+			printf("Max Global Memory Alloc Size: %lld\n", maxAllocSize);
+			GPU_MAX_MEM_ALLOC_SIZE=maxAllocSize;
 
-	clGetDeviceInfo(devices[j], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(maxConstBufSize), &maxConstBufSize, NULL);
-	printf("Max Const Memory Buffer Size: %lld\n", maxConstBufSize);
-	clGetDeviceInfo(devices[j], CL_DEVICE_ADDRESS_BITS, sizeof(deviceAddressBits), &deviceAddressBits, NULL);
-	printf("Device Address Bits: %d\n", deviceAddressBits);
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(maxConstBufSize), &maxConstBufSize, NULL);
+			printf("Max Const Memory Buffer Size: %lld\n", maxConstBufSize);
+			clGetDeviceInfo(devices[j], CL_DEVICE_ADDRESS_BITS, sizeof(deviceAddressBits), &deviceAddressBits, NULL);
+			printf("Device Address Bits: %d\n", deviceAddressBits);
 
-	// print parallel compute units
-	clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
-	printf("Parallel compute units: %d\n", maxComputeUnits);
-		GPU_MAX_COMPUTE_UNITS=maxComputeUnits;
+			// print parallel compute units
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
+			printf("Parallel compute units: %d\n", maxComputeUnits);
+			GPU_MAX_COMPUTE_UNITS=maxComputeUnits;
 
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroup), &maxWorkGroup, NULL);
-	printf("Max Workgroup Size: %zd\n", maxWorkGroup);
-		GPU_MAX_WORKGROUP_SIZE=maxWorkGroup;
-		
-	clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR, sizeof(dname), dname, NULL);
-	printf("Vendor: %s\n", dname);
+			printf("Max Workgroup Size: %zd\n", maxWorkGroup);
+			GPU_MAX_WORKGROUP_SIZE=maxWorkGroup;
+
+			clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR, sizeof(dname), dname, NULL);
+			printf("Vendor: %s\n", dname);
 
 			if(strstr(dname, "NVIDIA") != NULL)
 			{
@@ -190,41 +188,42 @@ int checkDeviceStatistics()
 				printf("Overlap Memory and Kernel: %d\n", overlap);
 			}	
 
-			if (strstr(dname, "Intel") != NULL) DEV_INTEL=1;
-			if ((strstr(dname, "Advanced Micro") != NULL || strstr(dname, "AMD") != NULL || strstr(dname, "ATI") != NULL)) DEV_AMD=1;
-        
-        	if(deviceFound==1)
-        	{
-			printf("\nFor this session, BitCracker requires at least %ld bytes of memory\n\n", (tot_word_mem));
-			if(GPU_MAX_GLOBAL_MEM < tot_word_mem)
-			{
-				fprintf(stderr, "Not enough memory available on device. Minimum required: %zd Tot memory: %ld\n", (tot_word_mem), GPU_MAX_GLOBAL_MEM);
-				return BIT_FAILURE;
-			}
-			
-			if(GPU_MAX_MEM_ALLOC_SIZE < tot_word_mem)
-			{
-				fprintf(stderr, "GPU_MAX_MEM_ALLOC_SIZE: %zd Mem chunk1: %zd\n", GPU_MAX_MEM_ALLOC_SIZE, tot_word_mem);
-				return BIT_FAILURE;
-			}
-
-			break;        		
-        	}
-
-        }
- 
-        free(devices);
-        if(deviceFound == 1) break;
-    }
- 
-    free(platforms);
-
-    if(deviceFound == 0)
-    {
-    	fprintf(stderr, "Device not found! Input platform: %d, input device: %d\n", platform_id, gpu_id);
-		return BIT_FAILURE;
-    }
+			if (strstr(dname, "Intel") != NULL)
+				DEV_INTEL=1;
+			if ((strstr(dname, "Advanced Micro") != NULL || strstr(dname, "AMD") != NULL || strstr(dname, "ATI") != NULL))
+				DEV_AMD=1;
 		
+			if(deviceFound==1)
+			{
+				printf("\nFor this session, BitCracker requires at least %ld bytes of memory\n\n", (tot_word_mem));
+				if(GPU_MAX_GLOBAL_MEM < tot_word_mem)
+				{
+					fprintf(stderr, "Not enough memory available on device. Minimum required: %zd Tot memory: %ld\n", (tot_word_mem), GPU_MAX_GLOBAL_MEM);
+					return BIT_FAILURE;
+				}
+				
+				if(GPU_MAX_MEM_ALLOC_SIZE < tot_word_mem)
+				{
+					fprintf(stderr, "GPU_MAX_MEM_ALLOC_SIZE: %zd Mem chunk1: %zd\n", GPU_MAX_MEM_ALLOC_SIZE, tot_word_mem);
+					return BIT_FAILURE;
+				}
+
+				break;
+			}
+		}
+
+		free(devices);
+		if(deviceFound == 1) break;
+	}
+ 
+	free(platforms);
+
+	if(deviceFound == 0)
+	{
+		fprintf(stderr, "Device not found! Input platform: %d, input device: %d\n", platform_id, gpu_id);
+		return BIT_FAILURE;
+	}
+
 	return BIT_SUCCESS;
 }
 
@@ -239,7 +238,7 @@ int createClCtx()
 	cl_uint numPlatforms = 0;
 	clErr = clGetPlatformIDs(MAX_NUM_PLATFORMS, cpPlatforms, &numPlatforms);
 	CL_ERROR(clErr);
-     
+
 	/* Get platform/device information */
 	clErr = clGetDeviceIDs(cpPlatforms[platform_id], CL_DEVICE_TYPE_ALL, 0, NULL, &uiNumDevices);
 	CL_ERROR(clErr);
@@ -280,10 +279,10 @@ int main (int argc, char **argv)
 	unsigned char *salt, *nonce, *vmk, *mac;
 	uint32_t * w_blocks_d;
 	long int totGlobalMem;
-	
+
 	//int threads = 0;
 	int gridBlocks = 4, ret=0, opt=0;
-	
+
 	gpu_id=0;
 	platform_id=0;
 
@@ -364,7 +363,7 @@ int main (int argc, char **argv)
 				exit(EXIT_FAILURE);
 		}
 	}
-	
+
 	if (optind < argc) {
 		printf ("non-option ARGV-elements: ");
 		while (optind < argc)
@@ -372,7 +371,7 @@ int main (int argc, char **argv)
 		putchar ('\n');
 		exit(EXIT_FAILURE);
 	}
-	
+
 	if (input_dictionary == NULL){
 		printf("Missing dictionary file!\n");
 		usage(argv[0]);

@@ -99,9 +99,10 @@
 		        } }
 
 #define BITCRACKER_CUDA_CHECK_LAST_ERROR() {                                    \
-	    if( cudaSuccess != cudaGetLastError()) {                                                \
-		            fprintf(stderr, "Cuda error in file '%s' in line %i : %s.\n",        \
-					                    __FILE__, __LINE__, cudaGetErrorString( cudaGetLastError() ) );              \
+		cudaError_t cuErr = cudaGetLastError();   \
+	    if( cudaSuccess != cuErr) {                                                \
+		            fprintf(stderr, "Cuda error in file '%s' in line %i err %d : %s.\n",        \
+					                    __FILE__, __LINE__, cuErr, cudaGetErrorString( cuErr ) );              \
 		            exit(EXIT_FAILURE);                                                  \
 		        } }
 
@@ -119,15 +120,16 @@ __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIterat
 __global__ __launch_bounds__(1024,1) void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkKey, 
 							unsigned char * IV, int strict_check,
 							int v0, int v1, int v2, int v3,
-							uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method);
+							uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method,
+							uint32_t * w_blocks_d, uint32_t * dev_passwd);
 
 __global__ __launch_bounds__(1024,1) void decrypt_vmk_with_mac(
 					int tot_psw_kernel, int *found, 
 					unsigned char * vmkKey, unsigned char * vmkIV,
 					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
 					int v0, int v1, int v2, int v3,
-					uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method
-				);
+					uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method,
+					uint32_t * w_blocks_d, uint32_t * dev_passwd);
 
 /* ++++++++++++++++++++++++++++++++++++++ HOST FUNCTIONS ++++++++++++++++++++++++++++++++++++++ */
 int w_block_precomputed(unsigned char * salt, uint32_t * w_blocks_d);

@@ -143,10 +143,8 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	p = strtokm(NULL, "$"); // salt
 	for (i = 0, j = 0; i < salt_size*2; i+=2, j++)
 	{
-		tmp[0] = p[i];
-		tmp[1] = p[i+1];
-		long int ret = strtol(tmp, NULL, 16);
-		(*salt)[j] = (unsigned char)(ret);
+		(*salt)[j] = (p[i] <= '9' ? p[i] - '0' : toupper(p[i]) - 'A' + 10) << 4;
+		(*salt)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;
 	}
 
 	p = strtokm(NULL, "$"); // iterations
@@ -168,10 +166,8 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	p = strtokm(NULL, "$"); // nonce
 	for (i = 0, j = 0; i < nonce_size*2; i+=2, j++)
 	{
-		tmp[0] = p[i];
-		tmp[1] = p[i+1];
-		long int ret = strtol(tmp, NULL, 16);
-		(*nonce)[j] = (unsigned char)(ret);
+		(*nonce)[j] = (p[i] <= '9' ? p[i] - '0' : toupper(p[i]) - 'A' + 10) << 4;
+		(*nonce)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;
 	}
 
 	p = strtokm(NULL, "$"); // data_size
@@ -186,10 +182,8 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	p = strtokm(NULL, "$"); // data
 	for (i = 0, j = 0; i < MAC_SIZE*2; i+=2, j++)
 	{
-		tmp[0] = p[i];
-		tmp[1] = p[i+1];
-		long int ret = strtol(tmp, NULL, 16);
-		(*mac)[j] = (unsigned char)(ret);
+		(*mac)[j] = (p[i] <= '9' ? p[i] - '0' : toupper(p[i]) - 'A' + 10) << 4;
+		(*mac)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;	}
 	}
 
 	if(mac_comparison == 1 && !memcmp((*mac), zero_string, MAC_SIZE))
@@ -200,10 +194,8 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 
 	for (j=0; i < vmk_size*2; i+=2, j++)
 	{
-		tmp[0] = p[i];
-		tmp[1] = p[i+1];
-		long int ret = strtol(tmp, NULL, 16);
-		(*vmk)[j] = (unsigned char)(ret);
+		(*vmk)[j] = (p[i] <= '9' ? p[i] - '0' : toupper(p[i]) - 'A' + 10) << 4;
+		(*vmk)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;
 	}
 
 	fclose(fphash);

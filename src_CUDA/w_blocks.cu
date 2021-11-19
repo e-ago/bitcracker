@@ -114,7 +114,7 @@ __global__ void w_block_evaluate(unsigned char salt[SALT_SIZE], int totNumIterat
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+61)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+62)
 		SCHEDULE_WPRE((SINGLE_BLOCK_W_SIZE*loop)+63)
-		
+
 		loop += (blockDim.x * gridDim.x);
 	}
 }

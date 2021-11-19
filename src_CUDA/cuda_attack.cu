@@ -1,32 +1,7 @@
-/*
- * BitCracker: BitLocker password cracking tool, CUDA version.
- * Copyright (C) 2013-2017  Elena Ago <elena dot ago at gmail dot com>
- *			    Massimo Bernaschi <massimo dot bernaschi at gmail dot com>
- * 
- * This file is part of the BitCracker project: https://github.com/e-ago/bitcracker
- * 
- * BitCracker is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- * 
- * BitCracker is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with BitCracker. If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include "bitcracker.h"
-
-texture<uint32_t>	w_texture;
-texture<uint32_t>	w_password;
 
 int			*deviceFound, *hostFound;
 char			*hostPassword;
-uint32_t		*hostPasswordInt, *devicePasswordInt;
 unsigned char		outPsw[MAX_INPUT_PASSWORD_LEN+1];
 int			outIndexPsw=0;
 
@@ -60,6 +35,10 @@ char *cuda_attack(
 	cudaEvent_t	start, stop;
 	cudaStream_t	stream;
 	float 		elapsedTime;
+	uint32_t		*hostPasswordInt, *devicePasswordInt;
+
+	// cudaTextureObject_t texObj_blocks = 0;
+	// cudaTextureObject_t texObj_pswd = 0;
 
 	if(dname == NULL || w_blocks_d == NULL || encryptedVMK == NULL)
 	{
@@ -162,15 +141,55 @@ char *cuda_attack(
 	
 	// ---------------------
 
+#if 0
+	// Allocate CUDA array in device memory
+    cudaChannelFormatDesc channelDesc_blocks = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+
+	// Specify texture
+	struct cudaResourceDesc resDesc_blocks;
+	memset(&resDesc_blocks, 0, sizeof(resDesc_blocks));
+	resDesc_blocks.resType = cudaResourceTypeLinear;
+	resDesc_blocks.res.linear.devPtr = w_blocks_d;
+	resDesc_blocks.res.linear.desc = channelDesc_blocks;
+	resDesc_blocks.res.linear.sizeInBytes = (SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t));
+
+	// Specify texture object parameters
+	struct cudaTextureDesc texDesc_blocks;
+	memset(&texDesc_blocks, 0, sizeof(texDesc_blocks));
+	texDesc_blocks.addressMode[0] = cudaAddressModeWrap;
+	texDesc_blocks.filterMode = cudaFilterModeLinear;
+	texDesc_blocks.readMode = cudaReadModeElementType;
+	texDesc_blocks.normalizedCoords = 1;
+
+	// Create texture object
+	cudaCreateTextureObject(&texObj_blocks, &resDesc_blocks, &texDesc_blocks, NULL);
+	
+	// Allocate CUDA array in device memory
+	cudaChannelFormatDesc channelDesc_pswd = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+
+	// Specify texture
+	struct cudaResourceDesc resDesc_pswd;
+	memset(&resDesc_pswd, 0, sizeof(resDesc_pswd));
+	resDesc_pswd.resType = cudaResourceTypeLinear;
+	resDesc_pswd.res.linear.devPtr = devicePasswordInt;
+	resDesc_pswd.res.linear.desc = channelDesc_pswd;
+	resDesc_pswd.res.linear.sizeInBytes = (tot_psw * PSW_INT_SIZE * sizeof(uint32_t));
+
+	// Specify texture object parameters
+	struct cudaTextureDesc texDesc_pswd;
+	memset(&texDesc_pswd, 0, sizeof(texDesc_pswd));
+	texDesc_pswd.addressMode[0] = cudaAddressModeWrap;
+	texDesc_pswd.filterMode = cudaFilterModeLinear;
+	texDesc_pswd.readMode = cudaReadModeElementType;
+	texDesc_pswd.normalizedCoords = 1;
+
+	// Create texture object
+	cudaCreateTextureObject(&texObj_pswd, &resDesc_pswd, &texDesc_pswd, NULL);
+#endif
+
 	BITCRACKER_CUDA_CHECK( cudaMemcpy(w_blocks_h, w_blocks_d, 4*sizeof(int), cudaMemcpyDeviceToHost) );
 
-	// -------- TEXTURE --------
-	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_texture, w_blocks_d, (SINGLE_BLOCK_SHA_SIZE * ITERATION_NUMBER * sizeof(uint32_t))));
-	BITCRACKER_CUDA_CHECK(cudaBindTexture(NULL, w_password, devicePasswordInt, (tot_psw * PSW_INT_SIZE * sizeof(uint32_t))));
-	
-	// -------------------------
-
-	BITCRACKER_CUDA_CHECK (cudaDeviceSetCacheConfig( cudaFuncCachePreferL1 ) );
+	// BITCRACKER_CUDA_CHECK (cudaDeviceSetCacheConfig( cudaFuncCachePreferL1 ) );
 
 	printf("Type of attack: %s\nCUDA Threads: %d\nCUDA Blocks: %d\nPsw per thread: %d\nMax Psw per kernel: %d\nDictionary: %s\nStrict Check (-s): %s\nMAC Comparison (-m): %s\n\n", 
 		(attack_mode==MODE_USER_PASS)?"User Password":"Recovery Password", cudaThreads, gridBlocks, psw_x_thread, tot_psw, (fp == stdin)?"standard input":dname, (strict_check == 1)?"Yes":"No", (mac_comparison == 1)?"Yes":"No");
@@ -192,8 +211,9 @@ char *cuda_attack(
 												numReadPassword, deviceFound, 
 												d_vmk, d_vmkIV, d_mac, d_macIV, d_computeMacIV,
 												w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
-												s0, s1, s2, s3, attack_mode
-												);
+												s0, s1, s2, s3, attack_mode,
+												w_blocks_d, devicePasswordInt// texObj_blocks, texObj_pswd
+											);
 		}
 		else
 		{
@@ -201,7 +221,8 @@ char *cuda_attack(
 			decrypt_vmk<<<gridBlocks, CUDA_THREADS_NO_MAC, 0, stream>>>(
 											numReadPassword, deviceFound, d_vmk, d_vmkIV, strict_check, 
 											w_blocks_h[0], w_blocks_h[1], w_blocks_h[2], w_blocks_h[3],
-											s0, s1, s2, s3, attack_mode);
+											s0, s1, s2, s3, attack_mode,
+											w_blocks_d, devicePasswordInt);
 		}
 
 		BITCRACKER_CUDA_CHECK_LAST_ERROR();
@@ -210,7 +231,7 @@ char *cuda_attack(
 		BITCRACKER_CUDA_CHECK( cudaStreamSynchronize(stream) );
 		totReadPsw += numReadPassword;
 		BITCRACKER_CUDA_CHECK( cudaEventElapsedTime(&elapsedTime, start, stop) );
-		
+
 		printf("CUDA Kernel execution:\n\tEffective passwords: %d\n\tPasswords Range:\n\t\t%s\n\t\t.....\n\t\t%s\n\tTime: %f sec\n\tPasswords x second: %8.2f pw/sec\n", 
 						numReadPassword, 
 						(char *)hostPassword, 
@@ -230,678 +251,678 @@ char *cuda_attack(
 	else
 		printf("\n\n================================================\nCUDA attack completed\nPasswords evaluated: %lld\nPassword not found!\n================================================\n\n", totReadPsw);
 
-	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_password) );
 	BITCRACKER_CUDA_CHECK( cudaFreeHost(hostPassword) );
 	BITCRACKER_CUDA_CHECK( cudaFree(devicePasswordInt) );
 	BITCRACKER_CUDA_CHECK( cudaFree(deviceFound) );
 	BITCRACKER_CUDA_CHECK( cudaStreamDestroy(stream) );
-	BITCRACKER_CUDA_CHECK( cudaUnbindTexture(&w_texture) );
+	
+	// BITCRACKER_CUDA_CHECK( cudaDestroyTextureObject(texObj_blocks) );
+	// BITCRACKER_CUDA_CHECK( cudaDestroyTextureObject(texObj_pswd) );
 
 	return NULL;
 }
 
-
 #define END_STRING 0x80 //0xFF
 __global__ void decrypt_vmk(int tot_psw_kernel, int *found, unsigned char * vmkKey, 
 	unsigned char * IV, int strict_check, int v0, int v1, int v2, int v3,
-	uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method
-	)
-{
-    
-   	uint32_t schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
-	uint32_t schedule10, schedule11, schedule12, schedule13, schedule14, schedule15, schedule16, schedule17, schedule18, schedule19;
-	uint32_t schedule20, schedule21, schedule22, schedule23, schedule24, schedule25, schedule26, schedule27, schedule28, schedule29;
-	uint32_t schedule30, schedule31;
-	uint32_t first_hash0, first_hash1, first_hash2, first_hash3, first_hash4, first_hash5, first_hash6, first_hash7;
-	uint32_t hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7;
-	uint32_t a, b, c, d, e, f, g, h;
-
-    	int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
-	int index_generic;
-	int indexW=(gIndex*PSW_INT_SIZE);
-	int8_t redo=0;
-
-	while(gIndex < tot_psw_kernel)
+	uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3, int method,
+	uint32_t * w_blocks_d, uint32_t * dev_passwd)
 	{
-		first_hash0 = UINT32_C(0x6A09E667);
-		first_hash1 = UINT32_C(0xBB67AE85);
-		first_hash2 = UINT32_C(0x3C6EF372);
-		first_hash3 = UINT32_C(0xA54FF53A);
-		first_hash4 = UINT32_C(0x510E527F);
-		first_hash5 = UINT32_C(0x9B05688C);
-		first_hash6 = UINT32_C(0x1F83D9AB);
-		first_hash7 = UINT32_C(0x5BE0CD19);
-
-		a = UINT32_C(0x6A09E667);
-		b = UINT32_C(0xBB67AE85);
-		c = UINT32_C(0x3C6EF372);
-		d = UINT32_C(0xA54FF53A);
-		e = UINT32_C(0x510E527F);
-		f = UINT32_C(0x9B05688C);
-		g = UINT32_C(0x1F83D9AB);
-		h = UINT32_C(0x5BE0CD19);
-
-//----------------------------------------------------- FIRST HASH ------------------------------------------------
-		indexW=(gIndex*PSW_INT_SIZE);
-		redo=0;
-		schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
-		schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
-		schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
-		schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+3)));
-		schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+4)));
-		schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+5)));
-		schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+6)));
-		schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+7)));
-		schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+8)));
-		schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+9)));
-		schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+10)));
-		schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
-		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
-		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
-		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
-		//Input password is shorter than FIRST_LENGHT
-		if(schedule14 == 0xFFFFFFFF) schedule14=0;
-		else if(method == MODE_USER_PASS) redo=1;
-		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
-
+    
+		uint32_t schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
+	 uint32_t schedule10, schedule11, schedule12, schedule13, schedule14, schedule15, schedule16, schedule17, schedule18, schedule19;
+	 uint32_t schedule20, schedule21, schedule22, schedule23, schedule24, schedule25, schedule26, schedule27, schedule28, schedule29;
+	 uint32_t schedule30, schedule31;
+	 uint32_t first_hash0, first_hash1, first_hash2, first_hash3, first_hash4, first_hash5, first_hash6, first_hash7;
+	 uint32_t hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7;
+	 uint32_t a, b, c, d, e, f, g, h;
+ 
+		 int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
+	 int index_generic;
+	 int indexW=(gIndex*PSW_INT_SIZE);
+	 int8_t redo=0;
+ 
+	 while(gIndex < tot_psw_kernel)
+	 {
+		 first_hash0 = UINT32_C(0x6A09E667);
+		 first_hash1 = UINT32_C(0xBB67AE85);
+		 first_hash2 = UINT32_C(0x3C6EF372);
+		 first_hash3 = UINT32_C(0xA54FF53A);
+		 first_hash4 = UINT32_C(0x510E527F);
+		 first_hash5 = UINT32_C(0x9B05688C);
+		 first_hash6 = UINT32_C(0x1F83D9AB);
+		 first_hash7 = UINT32_C(0x5BE0CD19);
+ 
+		 a = UINT32_C(0x6A09E667);
+		 b = UINT32_C(0xBB67AE85);
+		 c = UINT32_C(0x3C6EF372);
+		 d = UINT32_C(0xA54FF53A);
+		 e = UINT32_C(0x510E527F);
+		 f = UINT32_C(0x9B05688C);
+		 g = UINT32_C(0x1F83D9AB);
+		 h = UINT32_C(0x5BE0CD19);
+ 
+ //----------------------------------------------------- FIRST HASH ------------------------------------------------
+		 indexW=(gIndex*PSW_INT_SIZE);
+		 redo=0;
+		 schedule0 = dev_passwd[indexW+0]; //(uint32_t) (tex1D<float>(texObj_pswd, (indexW+0)));
+		 schedule1 = dev_passwd[indexW+1];
+		 schedule2 = dev_passwd[indexW+2];
+		 schedule3 = dev_passwd[indexW+3];
+		 schedule4 = dev_passwd[indexW+4];
+		 schedule5 = dev_passwd[indexW+5];
+		 schedule6 = dev_passwd[indexW+6];
+		 schedule7 = dev_passwd[indexW+7];
+		 schedule8 = dev_passwd[indexW+8];
+		 schedule9 = dev_passwd[indexW+9];
+		 schedule10 = dev_passwd[indexW+10];
+		 schedule11 = dev_passwd[indexW+11];
+		 schedule12 = dev_passwd[indexW+12];
+		 schedule13 = dev_passwd[indexW+13];
+		 schedule14 = dev_passwd[indexW+14];
+		 //Input password is shorter than FIRST_LENGHT
+		 if(schedule14 == 0xFFFFFFFF) schedule14=0;
+		 else if(method == MODE_USER_PASS) redo=1;
+		 schedule15 = dev_passwd[indexW+15];
+ 
 		ALL_SCHEDULE_LAST16()
-		ALL_ROUND_B1_1()
-		ALL_SCHEDULE32()
-		ALL_ROUND_B1_2()
-	
-		first_hash0 += a;
-		first_hash1 += b;
-		first_hash2 += c;
-		first_hash3 += d;
-		first_hash4 += e;
-		first_hash5 += f;
-		first_hash6 += g;
-		first_hash7 += h;
+		 ALL_ROUND_B1_1()
+		 ALL_SCHEDULE32()
+		 ALL_ROUND_B1_2()
+	 
+		 first_hash0 += a;
+		 first_hash1 += b;
+		 first_hash2 += c;
+		 first_hash3 += d;
+		 first_hash4 += e;
+		 first_hash5 += f;
+		 first_hash6 += g;
+		 first_hash7 += h;
+ 
+		 //User password only
+		 if(method == MODE_USER_PASS)
+		 {
+			 if(redo == 1)
+			 {
+				 schedule0 = dev_passwd[indexW+16];
+				 schedule1 = dev_passwd[indexW+17];
+				 schedule2 = dev_passwd[indexW+18];
+				 schedule3 = dev_passwd[indexW+19];
+				 schedule4 = dev_passwd[indexW+20];
+				 schedule5 = dev_passwd[indexW+21];
+				 schedule6 = dev_passwd[indexW+22];
+				 schedule7 = dev_passwd[indexW+23];
+				 schedule8 = dev_passwd[indexW+24];
+				 schedule9 = dev_passwd[indexW+25];
+				 schedule10 = dev_passwd[indexW+26];
+				 schedule11 = dev_passwd[indexW+27];
+				 schedule12 = dev_passwd[indexW+28];
+				 schedule13 = dev_passwd[indexW+29];
+				 schedule14 = dev_passwd[indexW+30];
+				 schedule15 = dev_passwd[indexW+31];
+ 
+				 a = first_hash0;
+				 b = first_hash1;
+				 c = first_hash2;
+				 d = first_hash3;
+				 e = first_hash4;
+				 f = first_hash5;
+				 g = first_hash6;
+				 h = first_hash7;
+ 
+				 ALL_SCHEDULE_LAST16()
+				 ALL_ROUND_B1_1()
+				 ALL_SCHEDULE32()
+				 ALL_ROUND_B1_2()
+			 
+				 first_hash0 += a;
+				 first_hash1 += b;
+				 first_hash2 += c;
+				 first_hash3 += d;
+				 first_hash4 += e;
+				 first_hash5 += f;
+				 first_hash6 += g;
+				 first_hash7 += h;
+ 
+			 }
+ 
+ //----------------------------------------------------- SECOND HASH ------------------------------------------------
+			 schedule0 = first_hash0;
+			 schedule1 = first_hash1;
+			 schedule2 = first_hash2;
+			 schedule3 = first_hash3;
+			 schedule4 = first_hash4;
+			 schedule5 = first_hash5;
+			 schedule6 = first_hash6;
+			 schedule7 = first_hash7;
+			 schedule8 = 0x80000000;
+			 schedule9 = 0;
+			 schedule10 = 0;
+			 schedule11 = 0;
+			 schedule12 = 0;
+			 schedule13 = 0;
+			 schedule14 = 0;
+			 schedule15 = 0x100;
+ 
+			 first_hash0 = UINT32_C(0x6A09E667);
+			 first_hash1 = UINT32_C(0xBB67AE85);
+			 first_hash2 = UINT32_C(0x3C6EF372);
+			 first_hash3 = UINT32_C(0xA54FF53A);
+			 first_hash4 = UINT32_C(0x510E527F);
+			 first_hash5 = UINT32_C(0x9B05688C);
+			 first_hash6 = UINT32_C(0x1F83D9AB);
+			 first_hash7 = UINT32_C(0x5BE0CD19);
+ 
+			 a = first_hash0;
+			 b = first_hash1;
+			 c = first_hash2;
+			 d = first_hash3;
+			 e = first_hash4;
+			 f = first_hash5;
+			 g = first_hash6;
+			 h = first_hash7;
+ 
+			 ALL_SCHEDULE_LAST16()
+			 ALL_ROUND_B1_1()
+			 ALL_SCHEDULE32()
+			 ALL_ROUND_B1_2()
+			 
+			 first_hash0 += a;
+			 first_hash1 += b;
+			 first_hash2 += c;
+			 first_hash3 += d;
+			 first_hash4 += e;
+			 first_hash5 += f;
+			 first_hash6 += g;
+			 first_hash7 += h;
+		 }
+ //----------------------------------------------------- LOOP HASH ------------------------------------------------
+		 
+		 hash0=0;
+		 hash1=0;
+		 hash2=0;
+		 hash3=0;
+		 hash4=0;
+		 hash5=0;
+		 hash6=0;
+		 hash7=0;
+ 
+		 indexW=0;
+ 
+		 for(index_generic=0; index_generic < ITERATION_NUMBER/2; index_generic++)
+		 {
+			 a = UINT32_C(0x6A09E667);
+			 b = UINT32_C(0xBB67AE85);
+			 c = UINT32_C(0x3C6EF372);
+			 d = UINT32_C(0xA54FF53A);
+			 e = UINT32_C(0x510E527F);
+			 f = UINT32_C(0x9B05688C);
+			 g = UINT32_C(0x1F83D9AB);
+			 h = UINT32_C(0x5BE0CD19);
+ 
+			 schedule0 = hash0;
+			 schedule1 = hash1;
+			 schedule2 = hash2;
+			 schedule3 = hash3;
+			 schedule4 = hash4;
+			 schedule5 = hash5;
+			 schedule6 = hash6;
+			 schedule7 = hash7;
+ 
+			 schedule8 = first_hash0;
+			 schedule9 = first_hash1;
+			 schedule10 = first_hash2;
+			 schedule11 = first_hash3;
+			 schedule12 = first_hash4;
+			 schedule13 = first_hash5;
+			 schedule14 = first_hash6;
+			 schedule15 = first_hash7;
+ 
+			 ALL_SCHEDULE_LAST16()
+			 ALL_ROUND_B1_1()
+			 ALL_SCHEDULE32()
+			 ALL_ROUND_B1_2()
+ 
+			 hash0 = UINT32_C(0x6A09E667) + a;
+			 hash1 = UINT32_C(0xBB67AE85) + b;
+			 hash2 = UINT32_C(0x3C6EF372) + c;
+			 hash3 = UINT32_C(0xA54FF53A) + d;
+			 hash4 = UINT32_C(0x510E527F) + e;
+			 hash5 = UINT32_C(0x9B05688C) + f;
+			 hash6 = UINT32_C(0x1F83D9AB) + g;
+			 hash7 = UINT32_C(0x5BE0CD19) + h;
+ 
+			 a = hash0;
+			 b = hash1;
+			 c = hash2;
+			 d = hash3;
+			 e = hash4;
+			 f = hash5;
+			 g = hash6;
+			 h = hash7;
+ 
+			 ROUND_SECOND_BLOCK_CONST(a, b, c, d, e, f, g, h,  0, 0x428A2F98, v0)
+			 ROUND_SECOND_BLOCK_CONST(h, a, b, c, d, e, f, g,  1, 0x71374491, v1)
+			 ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
+			 ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, w_blocks_d[indexW+4])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, w_blocks_d[indexW+5])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, w_blocks_d[indexW+6])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, w_blocks_d[indexW+7])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, w_blocks_d[indexW+8])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, w_blocks_d[indexW+9])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, w_blocks_d[indexW+10])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, w_blocks_d[indexW+11])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, w_blocks_d[indexW+12])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, w_blocks_d[indexW+13])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, w_blocks_d[indexW+14])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, w_blocks_d[indexW+15])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, w_blocks_d[indexW+16])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, w_blocks_d[indexW+17])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, w_blocks_d[indexW+18])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, w_blocks_d[indexW+19])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, w_blocks_d[indexW+20])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, w_blocks_d[indexW+21])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, w_blocks_d[indexW+22])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, w_blocks_d[indexW+23])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, w_blocks_d[indexW+24])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, w_blocks_d[indexW+25])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, w_blocks_d[indexW+26])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, w_blocks_d[indexW+27])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, w_blocks_d[indexW+28])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, w_blocks_d[indexW+29])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, w_blocks_d[indexW+30])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, w_blocks_d[indexW+31])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, w_blocks_d[indexW+32])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, w_blocks_d[indexW+33])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, w_blocks_d[indexW+34])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, w_blocks_d[indexW+35])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, w_blocks_d[indexW+36])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, w_blocks_d[indexW+37])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, w_blocks_d[indexW+38])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, w_blocks_d[indexW+39])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, w_blocks_d[indexW+40])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, w_blocks_d[indexW+41])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, w_blocks_d[indexW+42])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, w_blocks_d[indexW+43])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, w_blocks_d[indexW+44])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, w_blocks_d[indexW+45])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, w_blocks_d[indexW+46])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, w_blocks_d[indexW+47])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, w_blocks_d[indexW+48])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, w_blocks_d[indexW+49])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, w_blocks_d[indexW+50])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, w_blocks_d[indexW+51])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, w_blocks_d[indexW+52])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, w_blocks_d[indexW+53])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, w_blocks_d[indexW+54])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, w_blocks_d[indexW+55])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, w_blocks_d[indexW+56])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, w_blocks_d[indexW+57])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, w_blocks_d[indexW+58])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, w_blocks_d[indexW+59])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, w_blocks_d[indexW+60])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, w_blocks_d[indexW+61])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, w_blocks_d[indexW+62])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, w_blocks_d[indexW+63])
+			 
+			 hash0 += a;
+			 hash1 += b;
+			 hash2 += c;
+			 hash3 += d;
+			 hash4 += e;
+			 hash5 += f;
+			 hash6 += g;
+			 hash7 += h;
+ 
+			 indexW += SINGLE_BLOCK_W_SIZE;
+		 }
 
-		//User password only
-		if(method == MODE_USER_PASS)
-		{
-			if(redo == 1)
-			{
-				schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+16)));
-				schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+17)));
-				schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+18)));
-				schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+19)));
-				schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+20)));
-				schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+21)));
-				schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+22)));
-				schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+23)));
-				schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+24)));
-				schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+25)));
-				schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+26)));
-				schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+27)));
-				schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+28)));
-				schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+29)));
-				schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+30)));
-				schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+31)));
+		 for(index_generic=ITERATION_NUMBER/2; index_generic < ITERATION_NUMBER; index_generic++)
+		 {
+			 a = UINT32_C(0x6A09E667);
+			 b = UINT32_C(0xBB67AE85);
+			 c = UINT32_C(0x3C6EF372);
+			 d = UINT32_C(0xA54FF53A);
+			 e = UINT32_C(0x510E527F);
+			 f = UINT32_C(0x9B05688C);
+			 g = UINT32_C(0x1F83D9AB);
+			 h = UINT32_C(0x5BE0CD19);
+ 
+			 schedule0 = hash0;
+			 schedule1 = hash1;
+			 schedule2 = hash2;
+			 schedule3 = hash3;
+			 schedule4 = hash4;
+			 schedule5 = hash5;
+			 schedule6 = hash6;
+			 schedule7 = hash7;
+ 
+			 schedule8 = first_hash0;
+			 schedule9 = first_hash1;
+			 schedule10 = first_hash2;
+			 schedule11 = first_hash3;
+			 schedule12 = first_hash4;
+			 schedule13 = first_hash5;
+			 schedule14 = first_hash6;
+			 schedule15 = first_hash7;
+ 
+			 ALL_SCHEDULE_LAST16()
+			 ALL_ROUND_B1_1()
+			 ALL_SCHEDULE32()
+			 ALL_ROUND_B1_2()
+ 
+			 hash0 = UINT32_C(0x6A09E667) + a;
+			 hash1 = UINT32_C(0xBB67AE85) + b;
+			 hash2 = UINT32_C(0x3C6EF372) + c;
+			 hash3 = UINT32_C(0xA54FF53A) + d;
+			 hash4 = UINT32_C(0x510E527F) + e;
+			 hash5 = UINT32_C(0x9B05688C) + f;
+			 hash6 = UINT32_C(0x1F83D9AB) + g;
+			 hash7 = UINT32_C(0x5BE0CD19) + h;
+ 
+			 a = hash0;
+			 b = hash1;
+			 c = hash2;
+			 d = hash3;
+			 e = hash4;
+			 f = hash5;
+			 g = hash6;
+			 h = hash7;
+ 
+			 ROUND_SECOND_BLOCK_CONST(a, b, c, d, e, f, g, h,  0, 0x428A2F98, v0)
+			 ROUND_SECOND_BLOCK_CONST(h, a, b, c, d, e, f, g,  1, 0x71374491, v1)
+			 ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
+			 ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, w_blocks_d[indexW+4])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, w_blocks_d[indexW+5])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, w_blocks_d[indexW+6])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, w_blocks_d[indexW+7])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, w_blocks_d[indexW+8])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, w_blocks_d[indexW+9])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, w_blocks_d[indexW+10])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, w_blocks_d[indexW+11])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, w_blocks_d[indexW+12])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, w_blocks_d[indexW+13])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, w_blocks_d[indexW+14])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, w_blocks_d[indexW+15])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, w_blocks_d[indexW+16])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, w_blocks_d[indexW+17])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, w_blocks_d[indexW+18])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, w_blocks_d[indexW+19])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, w_blocks_d[indexW+20])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, w_blocks_d[indexW+21])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, w_blocks_d[indexW+22])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, w_blocks_d[indexW+23])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, w_blocks_d[indexW+24])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, w_blocks_d[indexW+25])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, w_blocks_d[indexW+26])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, w_blocks_d[indexW+27])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, w_blocks_d[indexW+28])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, w_blocks_d[indexW+29])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, w_blocks_d[indexW+30])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, w_blocks_d[indexW+31])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, w_blocks_d[indexW+32])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, w_blocks_d[indexW+33])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, w_blocks_d[indexW+34])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, w_blocks_d[indexW+35])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, w_blocks_d[indexW+36])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, w_blocks_d[indexW+37])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, w_blocks_d[indexW+38])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, w_blocks_d[indexW+39])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, w_blocks_d[indexW+40])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, w_blocks_d[indexW+41])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, w_blocks_d[indexW+42])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, w_blocks_d[indexW+43])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, w_blocks_d[indexW+44])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, w_blocks_d[indexW+45])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, w_blocks_d[indexW+46])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, w_blocks_d[indexW+47])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, w_blocks_d[indexW+48])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, w_blocks_d[indexW+49])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, w_blocks_d[indexW+50])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, w_blocks_d[indexW+51])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, w_blocks_d[indexW+52])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, w_blocks_d[indexW+53])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, w_blocks_d[indexW+54])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, w_blocks_d[indexW+55])
+			 ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, w_blocks_d[indexW+56])
+			 ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, w_blocks_d[indexW+57])
+			 ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, w_blocks_d[indexW+58])
+			 ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, w_blocks_d[indexW+59])
+			 ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, w_blocks_d[indexW+60])
+			 ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, w_blocks_d[indexW+61])
+			 ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, w_blocks_d[indexW+62])
+			 ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, w_blocks_d[indexW+63])
+ 
+			 hash0 += a;
+			 hash1 += b;
+			 hash2 += c;
+			 hash3 += d;
+			 hash4 += e;
+			 hash5 += f;
+			 hash6 += g;
+			 hash7 += h;
+ 
+			 indexW += SINGLE_BLOCK_W_SIZE;
+		 }
 
-				a = first_hash0;
-				b = first_hash1;
-				c = first_hash2;
-				d = first_hash3;
-				e = first_hash4;
-				f = first_hash5;
-				g = first_hash6;
-				h = first_hash7;
-
-				ALL_SCHEDULE_LAST16()
-				ALL_ROUND_B1_1()
-				ALL_SCHEDULE32()
-				ALL_ROUND_B1_2()
-			
-				first_hash0 += a;
-				first_hash1 += b;
-				first_hash2 += c;
-				first_hash3 += d;
-				first_hash4 += e;
-				first_hash5 += f;
-				first_hash6 += g;
-				first_hash7 += h;
-
-			}
-
-//----------------------------------------------------- SECOND HASH ------------------------------------------------
-			schedule0 = first_hash0;
-			schedule1 = first_hash1;
-			schedule2 = first_hash2;
-			schedule3 = first_hash3;
-			schedule4 = first_hash4;
-			schedule5 = first_hash5;
-			schedule6 = first_hash6;
-			schedule7 = first_hash7;
-			schedule8 = 0x80000000;
-			schedule9 = 0;
-			schedule10 = 0;
-			schedule11 = 0;
-			schedule12 = 0;
-			schedule13 = 0;
-			schedule14 = 0;
-			schedule15 = 0x100;
-
-			first_hash0 = UINT32_C(0x6A09E667);
-			first_hash1 = UINT32_C(0xBB67AE85);
-			first_hash2 = UINT32_C(0x3C6EF372);
-			first_hash3 = UINT32_C(0xA54FF53A);
-			first_hash4 = UINT32_C(0x510E527F);
-			first_hash5 = UINT32_C(0x9B05688C);
-			first_hash6 = UINT32_C(0x1F83D9AB);
-			first_hash7 = UINT32_C(0x5BE0CD19);
-
-			a = first_hash0;
-			b = first_hash1;
-			c = first_hash2;
-			d = first_hash3;
-			e = first_hash4;
-			f = first_hash5;
-			g = first_hash6;
-			h = first_hash7;
-
-			ALL_SCHEDULE_LAST16()
-			ALL_ROUND_B1_1()
-			ALL_SCHEDULE32()
-			ALL_ROUND_B1_2()
-			
-			first_hash0 += a;
-			first_hash1 += b;
-			first_hash2 += c;
-			first_hash3 += d;
-			first_hash4 += e;
-			first_hash5 += f;
-			first_hash6 += g;
-			first_hash7 += h;
-		}
-//----------------------------------------------------- LOOP HASH ------------------------------------------------
-		
-		hash0=0;
-		hash1=0;
-		hash2=0;
-		hash3=0;
-		hash4=0;
-		hash5=0;
-		hash6=0;
-		hash7=0;
-
-		indexW=0;
-
-		for(index_generic=0; index_generic < ITERATION_NUMBER/2; index_generic++)
-		{
-			a = UINT32_C(0x6A09E667);
-			b = UINT32_C(0xBB67AE85);
-			c = UINT32_C(0x3C6EF372);
-			d = UINT32_C(0xA54FF53A);
-			e = UINT32_C(0x510E527F);
-			f = UINT32_C(0x9B05688C);
-			g = UINT32_C(0x1F83D9AB);
-			h = UINT32_C(0x5BE0CD19);
-
-			schedule0 = hash0;
-			schedule1 = hash1;
-			schedule2 = hash2;
-			schedule3 = hash3;
-			schedule4 = hash4;
-			schedule5 = hash5;
-			schedule6 = hash6;
-			schedule7 = hash7;
-
-			schedule8 = first_hash0;
-			schedule9 = first_hash1;
-			schedule10 = first_hash2;
-			schedule11 = first_hash3;
-			schedule12 = first_hash4;
-			schedule13 = first_hash5;
-			schedule14 = first_hash6;
-			schedule15 = first_hash7;
-
-			ALL_SCHEDULE_LAST16()
-			ALL_ROUND_B1_1()
-			ALL_SCHEDULE32()
-			ALL_ROUND_B1_2()
-
-			hash0 = UINT32_C(0x6A09E667) + a;
-			hash1 = UINT32_C(0xBB67AE85) + b;
-			hash2 = UINT32_C(0x3C6EF372) + c;
-			hash3 = UINT32_C(0xA54FF53A) + d;
-			hash4 = UINT32_C(0x510E527F) + e;
-			hash5 = UINT32_C(0x9B05688C) + f;
-			hash6 = UINT32_C(0x1F83D9AB) + g;
-			hash7 = UINT32_C(0x5BE0CD19) + h;
-
-			a = hash0;
-			b = hash1;
-			c = hash2;
-			d = hash3;
-			e = hash4;
-			f = hash5;
-			g = hash6;
-			h = hash7;
-
-			ROUND_SECOND_BLOCK_CONST(a, b, c, d, e, f, g, h,  0, 0x428A2F98, v0)
-			ROUND_SECOND_BLOCK_CONST(h, a, b, c, d, e, f, g,  1, 0x71374491, v1)
-			ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
-			ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, indexW)
-			
-			hash0 += a;
-			hash1 += b;
-			hash2 += c;
-			hash3 += d;
-			hash4 += e;
-			hash5 += f;
-			hash6 += g;
-			hash7 += h;
-
-			indexW += SINGLE_BLOCK_W_SIZE;
-		}
-
-		for(index_generic=ITERATION_NUMBER/2; index_generic < ITERATION_NUMBER; index_generic++)
-		{
-			a = UINT32_C(0x6A09E667);
-			b = UINT32_C(0xBB67AE85);
-			c = UINT32_C(0x3C6EF372);
-			d = UINT32_C(0xA54FF53A);
-			e = UINT32_C(0x510E527F);
-			f = UINT32_C(0x9B05688C);
-			g = UINT32_C(0x1F83D9AB);
-			h = UINT32_C(0x5BE0CD19);
-
-			schedule0 = hash0;
-			schedule1 = hash1;
-			schedule2 = hash2;
-			schedule3 = hash3;
-			schedule4 = hash4;
-			schedule5 = hash5;
-			schedule6 = hash6;
-			schedule7 = hash7;
-
-			schedule8 = first_hash0;
-			schedule9 = first_hash1;
-			schedule10 = first_hash2;
-			schedule11 = first_hash3;
-			schedule12 = first_hash4;
-			schedule13 = first_hash5;
-			schedule14 = first_hash6;
-			schedule15 = first_hash7;
-
-			ALL_SCHEDULE_LAST16()
-			ALL_ROUND_B1_1()
-			ALL_SCHEDULE32()
-			ALL_ROUND_B1_2()
-
-			hash0 = UINT32_C(0x6A09E667) + a;
-			hash1 = UINT32_C(0xBB67AE85) + b;
-			hash2 = UINT32_C(0x3C6EF372) + c;
-			hash3 = UINT32_C(0xA54FF53A) + d;
-			hash4 = UINT32_C(0x510E527F) + e;
-			hash5 = UINT32_C(0x9B05688C) + f;
-			hash6 = UINT32_C(0x1F83D9AB) + g;
-			hash7 = UINT32_C(0x5BE0CD19) + h;
-
-			a = hash0;
-			b = hash1;
-			c = hash2;
-			d = hash3;
-			e = hash4;
-			f = hash5;
-			g = hash6;
-			h = hash7;
-
-			ROUND_SECOND_BLOCK_CONST(a, b, c, d, e, f, g, h,  0, 0x428A2F98, v0)
-			ROUND_SECOND_BLOCK_CONST(h, a, b, c, d, e, f, g,  1, 0x71374491, v1)
-			ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
-			ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, indexW)
-
-			hash0 += a;
-			hash1 += b;
-			hash2 += c;
-			hash3 += d;
-			hash4 += e;
-			hash5 += f;
-			hash6 += g;
-			hash7 += h;
-
-			indexW += SINGLE_BLOCK_W_SIZE;
-		}
-
-//----------------------------------------------------- FINAL CHECK ------------------------------------------------
-
+ //----------------------------------------------------- FINAL CHECK ------------------------------------------------
+ 
 		schedule0 = __byte_perm(((uint32_t *)(IV))[0], 0, 0x0123) ^ hash0;
-	        schedule1 = __byte_perm(((uint32_t *)(IV+4))[0], 0, 0x0123) ^ hash1;
-	        schedule2 = __byte_perm(((uint32_t *)(IV+8))[0], 0, 0x0123) ^ hash2;
-	        schedule3 = __byte_perm(((uint32_t *)(IV+12))[0], 0, 0x0123) ^ hash3;
+		schedule1 = __byte_perm(((uint32_t *)(IV+4))[0], 0, 0x0123) ^ hash1;
+		schedule2 = __byte_perm(((uint32_t *)(IV+8))[0], 0, 0x0123) ^ hash2;
+		schedule3 = __byte_perm(((uint32_t *)(IV+12))[0], 0, 0x0123) ^ hash3;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+ 
+		 hash0 ^= LOP3LUT_XOR( 
+						 LOP3LUT_XOR( (TS2[(hash7 >> 24) ] & 0x000000FF), (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000), (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000)), 
+							 (TS1[(hash7 ) & 0xFF] & 0x0000FF00), 0x01000000
+					 ); //RCON[0];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+ 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+		 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+				   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+				   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x02000000; //RCON[1];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+ 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+ 
+ 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+				   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+				   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x04000000; //RCON[2];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+ 
+ 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+		 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+				   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+				   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x08000000; //RCON[3];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+		 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+ 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+				   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+				   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x10000000; //RCON[4];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+ 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+ 
+ 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+				   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+				   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x20000000; //RCON[5];
+		 hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
+ 
+		 schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
+		 schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
+		 schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
+		 schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
+ 
+		 hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
+				   (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
+				   (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
+				   (TS2[(hash3      ) & 0xFF] & 0x000000FF);
+		 hash5 ^= hash4;
+		 hash6 ^= hash5;
+		 hash7 ^= hash6;
+ 
+		 schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
+		 schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
+		 schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
+		 schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
+ 
+		 hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
+			   (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
+			   (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
+			   (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x40000000; //RCON[6];
+		 hash1 ^= hash0;
+		 hash2 ^= hash1;
+		 hash3 ^= hash2;
+ 
+		 schedule0 = (TS2[(schedule4 >> 24)       ] & 0xFF000000) ^
+			  (TS3[(schedule5 >> 16) & 0xFF] & 0x00FF0000) ^
+			  (TS0[(schedule6 >>  8) & 0xFF] & 0x0000FF00) ^
+			  (TS1[(schedule7      ) & 0xFF] & 0x000000FF) ^ hash0;
+ 
+		 schedule1 = (TS2[(schedule5 >> 24)       ] & 0xFF000000) ^
+			  (TS3[(schedule6 >> 16) & 0xFF] & 0x00FF0000) ^
+			  (TS0[(schedule7 >>  8) & 0xFF] & 0x0000FF00) ^
+			  (TS1[(schedule4      ) & 0xFF] & 0x000000FF) ^ hash1;
+ 
+		 schedule2 = (TS2[(schedule6 >> 24)       ] & 0xFF000000) ^
+			  (TS3[(schedule7 >> 16) & 0xFF] & 0x00FF0000) ^
+			  (TS0[(schedule4 >>  8) & 0xFF] & 0x0000FF00) ^
+			  (TS1[(schedule5      ) & 0xFF] & 0x000000FF) ^ hash2;
+ 
+		 schedule3 = (TS2[(schedule7 >> 24)       ] & 0xFF000000) ^
+			  (TS3[(schedule4 >> 16) & 0xFF] & 0x00FF0000) ^
+			  (TS0[(schedule5 >>  8) & 0xFF] & 0x0000FF00) ^
+			  (TS1[(schedule6      ) & 0xFF] & 0x000000FF) ^ hash3;
+ 
+		 schedule4 = __byte_perm(schedule0, 0, 0x0123);
+		 schedule5 = __byte_perm(schedule1, 0, 0x0123);
+		 schedule6 = __byte_perm(schedule2, 0, 0x0123);
+		 schedule7 = __byte_perm(schedule3, 0, 0x0123);
 
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-
-		hash0 ^= LOP3LUT_XOR( 
-						LOP3LUT_XOR( (TS2[(hash7 >> 24) ] & 0x000000FF), (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000), (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000)), 
-							(TS1[(hash7 ) & 0xFF] & 0x0000FF00), 0x01000000
-					); //RCON[0];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-		
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x02000000; //RCON[1];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-
-
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x04000000; //RCON[2];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-
-
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-		
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x08000000; //RCON[3];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-		
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x10000000; //RCON[4];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-
-
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-				  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-				  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x20000000; //RCON[5];
-		hash1 ^= hash0; hash2 ^= hash1; hash3 ^= hash2;
-
-		schedule0 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule4 >> 24], TS1[(schedule5 >> 16) & 0xFF], TS2[(schedule6 >> 8) & 0xFF]) , TS3[schedule7 & 0xFF] , hash0);
-		schedule1 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule5 >> 24], TS1[(schedule6 >> 16) & 0xFF], TS2[(schedule7 >> 8) & 0xFF]) , TS3[schedule4 & 0xFF] , hash1);
-		schedule2 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule6 >> 24], TS1[(schedule7 >> 16) & 0xFF], TS2[(schedule4 >> 8) & 0xFF]) , TS3[schedule5 & 0xFF] , hash2);
-		schedule3 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule7 >> 24], TS1[(schedule4 >> 16) & 0xFF], TS2[(schedule5 >> 8) & 0xFF]) , TS3[schedule6 & 0xFF] , hash3);
-
-		hash4 ^= (TS3[(hash3 >> 24)       ] & 0xFF000000) ^
-				  (TS0[(hash3 >> 16) & 0xFF] & 0x00FF0000) ^
-				  (TS1[(hash3 >>  8) & 0xFF] & 0x0000FF00) ^ 
-				  (TS2[(hash3      ) & 0xFF] & 0x000000FF);
-		hash5 ^= hash4;
-		hash6 ^= hash5;
-		hash7 ^= hash6;
-
-		schedule4 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule0 >> 24], TS1[(schedule1 >> 16) & 0xFF], TS2[(schedule2 >> 8) & 0xFF]) , TS3[schedule3 & 0xFF] , hash4);
-		schedule5 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule1 >> 24], TS1[(schedule2 >> 16) & 0xFF], TS2[(schedule3 >> 8) & 0xFF]) , TS3[schedule0 & 0xFF] , hash5);
-		schedule6 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule2 >> 24], TS1[(schedule3 >> 16) & 0xFF], TS2[(schedule0 >> 8) & 0xFF]) , TS3[schedule1 & 0xFF] , hash6);
-		schedule7 = LOP3LUT_XOR(LOP3LUT_XOR(TS0[schedule3 >> 24], TS1[(schedule0 >> 16) & 0xFF], TS2[(schedule1 >> 8) & 0xFF]) , TS3[schedule2 & 0xFF] , hash7);
-
-		hash0 ^= (TS2[(hash7 >> 24)       ] & 0x000000FF) ^
-			  (TS3[(hash7 >> 16) & 0xFF] & 0xFF000000) ^
-			  (TS0[(hash7 >>  8) & 0xFF] & 0x00FF0000) ^
-			  (TS1[(hash7      ) & 0xFF] & 0x0000FF00) ^ 0x40000000; //RCON[6];
-		hash1 ^= hash0;
-		hash2 ^= hash1;
-		hash3 ^= hash2;
-
-		schedule0 = (TS2[(schedule4 >> 24)       ] & 0xFF000000) ^
-			 (TS3[(schedule5 >> 16) & 0xFF] & 0x00FF0000) ^
-			 (TS0[(schedule6 >>  8) & 0xFF] & 0x0000FF00) ^
-			 (TS1[(schedule7      ) & 0xFF] & 0x000000FF) ^ hash0;
-
-		schedule1 = (TS2[(schedule5 >> 24)       ] & 0xFF000000) ^
-			 (TS3[(schedule6 >> 16) & 0xFF] & 0x00FF0000) ^
-			 (TS0[(schedule7 >>  8) & 0xFF] & 0x0000FF00) ^
-			 (TS1[(schedule4      ) & 0xFF] & 0x000000FF) ^ hash1;
-
-		schedule2 = (TS2[(schedule6 >> 24)       ] & 0xFF000000) ^
-			 (TS3[(schedule7 >> 16) & 0xFF] & 0x00FF0000) ^
-			 (TS0[(schedule4 >>  8) & 0xFF] & 0x0000FF00) ^
-			 (TS1[(schedule5      ) & 0xFF] & 0x000000FF) ^ hash2;
-
-		schedule3 = (TS2[(schedule7 >> 24)       ] & 0xFF000000) ^
-			 (TS3[(schedule4 >> 16) & 0xFF] & 0x00FF0000) ^
-			 (TS0[(schedule5 >>  8) & 0xFF] & 0x0000FF00) ^
-			 (TS1[(schedule6      ) & 0xFF] & 0x000000FF) ^ hash3;
-
-		schedule4 = __byte_perm(schedule0, 0, 0x0123);
-		schedule5 = __byte_perm(schedule1, 0, 0x0123);
-		schedule6 = __byte_perm(schedule2, 0, 0x0123);
-		schedule7 = __byte_perm(schedule3, 0, 0x0123);
-			
-		if (
-			((vmkKey[0] ^ ((uint8_t) schedule4)) == 0x2c) &&
-			((vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))) == 0x00) &&
-			((vmkKey[4] ^ ((uint8_t) schedule5)) == 0x01) &&
-			((vmkKey[5] ^ ((uint8_t) (schedule5 >> 8))) == 0x00) &&
-			((vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))) == 0x20)
-		)
-		{
-			if(
-				(strict_check == 0 && ((vmkKey[8] ^ ((uint8_t) schedule6)) <= 0x05))
-				||
-				(strict_check == 1 && ((vmkKey[8] ^ ((uint8_t) schedule6)) == 0x03))
-			)
-			{
-				*found = gIndex;
-				break;
-			}	
-		}
-
-		gIndex += (blockDim.x * gridDim.x);
-	}
-
-	return;
-}
+		 if (
+			 ((vmkKey[0] ^ ((uint8_t) schedule4)) == 0x2c) &&
+			 ((vmkKey[1] ^ ((uint8_t) (schedule4 >> 8))) == 0x00) &&
+			 ((vmkKey[4] ^ ((uint8_t) schedule5)) == 0x01) &&
+			 ((vmkKey[5] ^ ((uint8_t) (schedule5 >> 8))) == 0x00) &&
+			 ((vmkKey[9] ^ ((uint8_t) (schedule6 >> 8))) == 0x20)
+		 )
+		 {
+			 if(
+				 (strict_check == 0 && ((vmkKey[8] ^ ((uint8_t) schedule6)) <= 0x05))
+				 ||
+				 (strict_check == 1 && ((vmkKey[8] ^ ((uint8_t) schedule6)) == 0x03))
+			 )
+			 {
+				 *found = gIndex;
+				 break;
+			 }	
+		 }
+ 
+		 gIndex += (blockDim.x * gridDim.x);
+	 }
+ 
+	 return;
+ }
 
 __device__ void encrypt(
 	uint32_t k0, uint32_t k1, uint32_t k2, uint32_t k3, uint32_t k4, uint32_t k5, uint32_t k6, uint32_t k7,
@@ -1119,10 +1140,11 @@ __global__ void decrypt_vmk_with_mac(
 					unsigned char * mac, unsigned char * macIV, unsigned char * computeMacIV,
 					int v0, int v1, int v2, int v3,
 					uint32_t s0, uint32_t s1, uint32_t s2, uint32_t s3,
-					int method
+					int method,
+					uint32_t * w_blocks_d, uint32_t * dev_passwd
 )
-{    
-   	uint32_t schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
+{
+	uint32_t schedule0, schedule1, schedule2, schedule3, schedule4, schedule5, schedule6, schedule7, schedule8, schedule9;
 	uint32_t schedule10, schedule11, schedule12, schedule13, schedule14, schedule15, schedule16, schedule17, schedule18, schedule19;
 	uint32_t schedule20, schedule21, schedule22, schedule23, schedule24, schedule25, schedule26, schedule27, schedule28, schedule29;
 	uint32_t schedule30, schedule31;
@@ -1130,14 +1152,13 @@ __global__ void decrypt_vmk_with_mac(
 	uint32_t hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7;
 	uint32_t a, b, c, d, e, f, g, h;
 
-    	int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
+	int gIndex = (threadIdx.x+blockIdx.x*blockDim.x);
 	int index_generic;
-	int indexW=(gIndex*PSW_INT_SIZE);
+	int indexW=(gIndex *PSW_INT_SIZE);
 	int8_t redo=0;
 
 	while(gIndex < tot_psw_kernel)
 	{
-		
 		first_hash0 = UINT32_C(0x6A09E667);
 		first_hash1 = UINT32_C(0xBB67AE85);
 		first_hash2 = UINT32_C(0x3C6EF372);
@@ -1157,27 +1178,27 @@ __global__ void decrypt_vmk_with_mac(
 		h = UINT32_C(0x5BE0CD19);
 
 //----------------------------------------------------- FIRST HASH ------------------------------------------------
-		indexW=(gIndex*PSW_INT_SIZE);
+		indexW=(gIndex *PSW_INT_SIZE);
 		redo=0;
-		schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+0)));
-		schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+1)));
-		schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+2)));
-		schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+3)));
-		schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+4)));
-		schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+5)));
-		schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+6)));
-		schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+7)));
-		schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+8)));
-		schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+9)));
-		schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+10)));
-		schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+11)));
-		schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+12)));
-		schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+13)));
-		schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+14)));
+		schedule0 = (uint32_t) dev_passwd[indexW+0];
+		schedule1 = (uint32_t) dev_passwd[indexW+1];
+		schedule2 = (uint32_t) dev_passwd[indexW+2];
+		schedule3 = (uint32_t) dev_passwd[indexW+3];
+		schedule4 = (uint32_t) dev_passwd[indexW+4];
+		schedule5 = (uint32_t) dev_passwd[indexW+5];
+		schedule6 = (uint32_t) dev_passwd[indexW+6];
+		schedule7 = (uint32_t) dev_passwd[indexW+7];
+		schedule8 = (uint32_t) dev_passwd[indexW+8];
+		schedule9 = (uint32_t) dev_passwd[indexW+9];
+		schedule10 = (uint32_t) dev_passwd[indexW+10];
+		schedule11 = (uint32_t) dev_passwd[indexW+11];
+		schedule12 = (uint32_t) dev_passwd[indexW+12];
+		schedule13 = (uint32_t) dev_passwd[indexW+13];
+		schedule14 = (uint32_t) dev_passwd[indexW+14];
 		//Input password is shorter than FIRST_LENGHT
 		if(schedule14 == 0xFFFFFFFF) schedule14=0;
 		else if(method == MODE_USER_PASS) redo=1;
-		schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+15)));
+		schedule15 = (uint32_t) dev_passwd[indexW+15];
 
 		ALL_SCHEDULE_LAST16()
 		ALL_ROUND_B1_1()
@@ -1198,22 +1219,22 @@ __global__ void decrypt_vmk_with_mac(
 		{
 			if(redo == 1)
 			{
-				schedule0 = (uint32_t) (tex1Dfetch(w_password, (indexW+16)));
-				schedule1 = (uint32_t) (tex1Dfetch(w_password, (indexW+17)));
-				schedule2 = (uint32_t) (tex1Dfetch(w_password, (indexW+18)));
-				schedule3 = (uint32_t) (tex1Dfetch(w_password, (indexW+19)));
-				schedule4 = (uint32_t) (tex1Dfetch(w_password, (indexW+20)));
-				schedule5 = (uint32_t) (tex1Dfetch(w_password, (indexW+21)));
-				schedule6 = (uint32_t) (tex1Dfetch(w_password, (indexW+22)));
-				schedule7 = (uint32_t) (tex1Dfetch(w_password, (indexW+23)));
-				schedule8 = (uint32_t) (tex1Dfetch(w_password, (indexW+24)));
-				schedule9 = (uint32_t) (tex1Dfetch(w_password, (indexW+25)));
-				schedule10 = (uint32_t) (tex1Dfetch(w_password, (indexW+26)));
-				schedule11 = (uint32_t) (tex1Dfetch(w_password, (indexW+27)));
-				schedule12 = (uint32_t) (tex1Dfetch(w_password, (indexW+28)));
-				schedule13 = (uint32_t) (tex1Dfetch(w_password, (indexW+29)));
-				schedule14 = (uint32_t) (tex1Dfetch(w_password, (indexW+30)));
-				schedule15 = (uint32_t) (tex1Dfetch(w_password, (indexW+31)));
+				schedule0 = (uint32_t) dev_passwd[indexW+16];
+				schedule1 = (uint32_t) dev_passwd[indexW+17];
+				schedule2 = (uint32_t) dev_passwd[indexW+18];
+				schedule3 = (uint32_t) dev_passwd[indexW+19];
+				schedule4 = (uint32_t) dev_passwd[indexW+20];
+				schedule5 = (uint32_t) dev_passwd[indexW+21];
+				schedule6 = (uint32_t) dev_passwd[indexW+22];
+				schedule7 = (uint32_t) dev_passwd[indexW+23];
+				schedule8 = (uint32_t) dev_passwd[indexW+24];
+				schedule9 = (uint32_t) dev_passwd[indexW+25];
+				schedule10 = (uint32_t) dev_passwd[indexW+26];
+				schedule11 = (uint32_t) dev_passwd[indexW+27];
+				schedule12 = (uint32_t) dev_passwd[indexW+28];
+				schedule13 = (uint32_t) dev_passwd[indexW+29];
+				schedule14 = (uint32_t) dev_passwd[indexW+30];
+				schedule15 = (uint32_t) dev_passwd[indexW+31];
 
 				a = first_hash0;
 				b = first_hash1;
@@ -1361,66 +1382,66 @@ __global__ void decrypt_vmk_with_mac(
 			ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
 			ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
 
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, indexW)
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, w_blocks_d[indexW+4])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, w_blocks_d[indexW+5])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, w_blocks_d[indexW+6])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, w_blocks_d[indexW+7])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, w_blocks_d[indexW+8])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, w_blocks_d[indexW+9])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, w_blocks_d[indexW+10])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, w_blocks_d[indexW+11])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, w_blocks_d[indexW+12])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, w_blocks_d[indexW+13])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, w_blocks_d[indexW+14])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, w_blocks_d[indexW+15])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, w_blocks_d[indexW+16])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, w_blocks_d[indexW+17])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, w_blocks_d[indexW+18])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, w_blocks_d[indexW+19])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, w_blocks_d[indexW+20])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, w_blocks_d[indexW+21])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, w_blocks_d[indexW+22])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, w_blocks_d[indexW+23])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, w_blocks_d[indexW+24])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, w_blocks_d[indexW+25])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, w_blocks_d[indexW+26])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, w_blocks_d[indexW+27])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, w_blocks_d[indexW+28])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, w_blocks_d[indexW+29])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, w_blocks_d[indexW+30])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, w_blocks_d[indexW+31])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, w_blocks_d[indexW+32])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, w_blocks_d[indexW+33])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, w_blocks_d[indexW+34])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, w_blocks_d[indexW+35])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, w_blocks_d[indexW+36])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, w_blocks_d[indexW+37])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, w_blocks_d[indexW+38])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, w_blocks_d[indexW+39])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, w_blocks_d[indexW+40])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, w_blocks_d[indexW+41])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, w_blocks_d[indexW+42])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, w_blocks_d[indexW+43])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, w_blocks_d[indexW+44])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, w_blocks_d[indexW+45])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, w_blocks_d[indexW+46])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, w_blocks_d[indexW+47])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, w_blocks_d[indexW+48])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, w_blocks_d[indexW+49])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, w_blocks_d[indexW+50])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, w_blocks_d[indexW+51])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, w_blocks_d[indexW+52])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, w_blocks_d[indexW+53])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, w_blocks_d[indexW+54])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, w_blocks_d[indexW+55])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, w_blocks_d[indexW+56])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, w_blocks_d[indexW+57])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, w_blocks_d[indexW+58])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, w_blocks_d[indexW+59])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, w_blocks_d[indexW+60])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, w_blocks_d[indexW+61])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, w_blocks_d[indexW+62])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, w_blocks_d[indexW+63])
 
 			hash0 += a;
 			hash1 += b;
@@ -1491,66 +1512,66 @@ __global__ void decrypt_vmk_with_mac(
 			ROUND_SECOND_BLOCK_CONST(g, h, a, b, c, d, e, f,  2, 0xB5C0FBCF, v2)
 			ROUND_SECOND_BLOCK_CONST(f, g, h, a, b, c, d, e,  3, 0xE9B5DBA5, v3)
 
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, indexW)
-			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, indexW)
-			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, indexW)
-			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, indexW)
-			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, indexW)
-			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, indexW)
-			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, indexW)
-			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, indexW)
-			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, indexW)
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d,  4, 0x3956C25B, w_blocks_d[indexW+4])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c,  5, 0x59F111F1, w_blocks_d[indexW+5])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b,  6, 0x923F82A4, w_blocks_d[indexW+6])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a,  7, 0xAB1C5ED5, w_blocks_d[indexW+7])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h,  8, 0xD807AA98, w_blocks_d[indexW+8])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g,  9, 0x12835B01, w_blocks_d[indexW+9])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 10, 0x243185BE, w_blocks_d[indexW+10])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 11, 0x550C7DC3, w_blocks_d[indexW+11])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 12, 0x72BE5D74, w_blocks_d[indexW+12])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 13, 0x80DEB1FE, w_blocks_d[indexW+13])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 14, 0x9BDC06A7, w_blocks_d[indexW+14])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 15, 0xC19BF174, w_blocks_d[indexW+15])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 16, 0xE49B69C1, w_blocks_d[indexW+16])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 17, 0xEFBE4786, w_blocks_d[indexW+17])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 18, 0x0FC19DC6, w_blocks_d[indexW+18])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 19, 0x240CA1CC, w_blocks_d[indexW+19])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 20, 0x2DE92C6F, w_blocks_d[indexW+20])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 21, 0x4A7484AA, w_blocks_d[indexW+21])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 22, 0x5CB0A9DC, w_blocks_d[indexW+22])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 23, 0x76F988DA, w_blocks_d[indexW+23])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 24, 0x983E5152, w_blocks_d[indexW+24])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 25, 0xA831C66D, w_blocks_d[indexW+25])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 26, 0xB00327C8, w_blocks_d[indexW+26])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 27, 0xBF597FC7, w_blocks_d[indexW+27])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 28, 0xC6E00BF3, w_blocks_d[indexW+28])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 29, 0xD5A79147, w_blocks_d[indexW+29])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 30, 0x06CA6351, w_blocks_d[indexW+30])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 31, 0x14292967, w_blocks_d[indexW+31])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 32, 0x27B70A85, w_blocks_d[indexW+32])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 33, 0x2E1B2138, w_blocks_d[indexW+33])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 34, 0x4D2C6DFC, w_blocks_d[indexW+34])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 35, 0x53380D13, w_blocks_d[indexW+35])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 36, 0x650A7354, w_blocks_d[indexW+36])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 37, 0x766A0ABB, w_blocks_d[indexW+37])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 38, 0x81C2C92E, w_blocks_d[indexW+38])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 39, 0x92722C85, w_blocks_d[indexW+39])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 40, 0xA2BFE8A1, w_blocks_d[indexW+40])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 41, 0xA81A664B, w_blocks_d[indexW+41])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 42, 0xC24B8B70, w_blocks_d[indexW+42])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 43, 0xC76C51A3, w_blocks_d[indexW+43])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 44, 0xD192E819, w_blocks_d[indexW+44])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 45, 0xD6990624, w_blocks_d[indexW+45])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 46, 0xF40E3585, w_blocks_d[indexW+46])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 47, 0x106AA070, w_blocks_d[indexW+47])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 48, 0x19A4C116, w_blocks_d[indexW+48])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 49, 0x1E376C08, w_blocks_d[indexW+49])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 50, 0x2748774C, w_blocks_d[indexW+50])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 51, 0x34B0BCB5, w_blocks_d[indexW+51])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 52, 0x391C0CB3, w_blocks_d[indexW+52])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 53, 0x4ED8AA4A, w_blocks_d[indexW+53])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 54, 0x5B9CCA4F, w_blocks_d[indexW+54])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 55, 0x682E6FF3, w_blocks_d[indexW+55])
+			ROUND_SECOND_BLOCK(a, b, c, d, e, f, g, h, 56, 0x748F82EE, w_blocks_d[indexW+56])
+			ROUND_SECOND_BLOCK(h, a, b, c, d, e, f, g, 57, 0x78A5636F, w_blocks_d[indexW+57])
+			ROUND_SECOND_BLOCK(g, h, a, b, c, d, e, f, 58, 0x84C87814, w_blocks_d[indexW+58])
+			ROUND_SECOND_BLOCK(f, g, h, a, b, c, d, e, 59, 0x8CC70208, w_blocks_d[indexW+59])
+			ROUND_SECOND_BLOCK(e, f, g, h, a, b, c, d, 60, 0x90BEFFFA, w_blocks_d[indexW+60])
+			ROUND_SECOND_BLOCK(d, e, f, g, h, a, b, c, 61, 0xA4506CEB, w_blocks_d[indexW+61])
+			ROUND_SECOND_BLOCK(c, d, e, f, g, h, a, b, 62, 0xBEF9A3F7, w_blocks_d[indexW+62])
+			ROUND_SECOND_BLOCK(b, c, d, e, f, g, h, a, 63, 0xC67178F2, w_blocks_d[indexW+63])
 
 			hash0 += a;
 			hash1 += b;
