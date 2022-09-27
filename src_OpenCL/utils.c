@@ -183,7 +183,7 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 	for (i = 0, j = 0; i < MAC_SIZE*2; i+=2, j++)
 	{
 		(*mac)[j] = (p[i] <= '9' ? p[i] - '0' : toupper(p[i]) - 'A' + 10) << 4;
-		(*mac)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;	}
+		(*mac)[j] |= p[i+1] <= '9' ? p[i+1] - '0' : toupper(p[i+1]) - 'A' + 10;
 	}
 
 	if(mac_comparison == 1 && !memcmp((*mac), zero_string, MAC_SIZE))
