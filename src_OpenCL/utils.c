@@ -202,7 +202,7 @@ int parse_data(char *input_hash, unsigned char ** salt, unsigned char ** nonce,	
 
 	return BIT_SUCCESS;
 
-	out:
+	out: ;
 		fclose(fphash);
 		free(*salt);
 		free(*nonce);
