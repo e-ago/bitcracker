@@ -7,7 +7,9 @@ MAKE_INCLUDE=$(COMMON_INCLUDE) $(NVIDIA_INCLUDE) -cl-std=CL1.2 -O3
 
 all:
 	gcc $(MAKE_INCLUDE) $(FLAGS) -o bitcracker_opencl main.c opencl_attack.c utils.c w_blocks.c -lOpenCL
-#	clang -framework OpenCL -o bitcracker_opencl main.c opencl_attack.c utils.c w_blocks.c
+	#To use default CL version uncomment below(expect alot of warnings):
+	#gcc $(COMMON_INCLUDE) $(NVIDIA_INCLUDE) -O3 $(FLAGS) -o bitcracker_opencl main.c opencl_attack.c utils.c w_blocks.c -lOpenCL
+	#clang -framework OpenCL -o bitcracker_opencl main.c opencl_attack.c utils.c w_blocks.c
 
 
 clean:
