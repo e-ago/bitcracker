@@ -33,6 +33,7 @@ In order to build `bitcracker_cuda` coherently with your NVIDIA GPU and CUDA ver
 | Maxwell          | CUDA 8.0       | arch=compute_52,code=sm_52 |
 | Pascal           | CUDA 9.0       | arch=compute_60,code=sm_60 |
 | Volta            | CUDA 9.0       | arch=compute_70,code=sm_70 |
+| Ampere			   | CUDA 10.0		| arch=compute_75,code=sm_75 |
 
 ## Prepare the attack
 
